@@ -649,6 +649,11 @@ add_executable(test_symbols
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbols.cpp
 )
 
+# Recognized drawing symbols -> game spawns -> playable DungeonGame (#314) - header-only.
+add_executable(test_symbol_spawns
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbol_spawns.cpp
+)
+
 # Phase 2 CV robustness: lighting/skew/paper/wobble + corpus (Milestone 16 / #239)
 # - header-only.
 add_executable(test_cv_robust
@@ -1018,6 +1023,7 @@ set(HEADLESS_TESTS
     test_ssao_kernel
     test_svg_floorplan
     test_symbol_recognizer
+    test_symbol_spawns
     test_symbols
     test_timeline
     test_tmx_importer
