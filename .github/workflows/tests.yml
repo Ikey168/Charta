@@ -1,0 +1,48 @@
+name: Unit Tests
+
+# Runs the headless unit-test suite as a PR gate. The test_* executables were built
+# by the other workflows but never executed, so an assertion regression could not fail
+# CI. This builds only the header-only / deterministic tests (the `headless_tests`
+# target) and runs them via CTest; GL/GLFW/OpenAL/Bullet-linked tests are excluded as
+# they need a display or audio device.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  headless-tests:
+    name: Headless unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev \
+          libxext-dev \
+          libx11-dev \
+          mesa-common-dev \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libopenal-dev \
+          pkg-config
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build headless test suite
+      run: cmake --build build --target headless_tests -j$(nproc)
+
+    - name: Run headless tests
+      working-directory: build
+      run: ctest -L headless --output-on-failure
