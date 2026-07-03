@@ -549,6 +549,12 @@ add_executable(test_dungeon_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_game.cpp
 )
 
+# Headless tower-defense mode on the room topology: doorway-graph pathing, tower
+# damage, lives, win/lose, determinism (#271) - header-only.
+add_executable(test_tower_defense
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tower_defense.cpp
+)
+
 # First-person tour camera (Milestone 15 / #165) - header-only.
 add_executable(test_tour_camera
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tour_camera.cpp
