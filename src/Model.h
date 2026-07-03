@@ -130,7 +130,8 @@ private:
     std::map<std::string, BoneInfo> m_boneInfoMap;
     int m_boneCounter = 0;
     bool m_hasAnimations = false;
-    
+    std::vector<Animation> m_animations; // animation clips (issue #287)
+
     // Assimp processing
     void loadModel(const std::string& path);
     void processNode(aiNode* node, const aiScene* scene);
@@ -142,6 +143,9 @@ private:
     // Animation processing
     void extractBoneWeightForVertices(std::vector<AnimatedVertex>& vertices, aiMesh* mesh, const aiScene* scene);
     void setBoneIdAndWeights(AnimatedVertex& vertex, int boneID, float weight);
+    // Read the scene's animation channels into Animation clips (issue #287). Keyframe
+    // timestamps are converted from ticks to seconds so the runtime advances them by dt.
+    void extractAnimations(const aiScene* scene);
     
     // Helper functions
     std::string getTextureFilename(aiMaterial* mat, aiTextureType type, unsigned int index = 0);
@@ -185,6 +189,8 @@ public:
     bool hasAnimations() const { return m_hasAnimations; }
     const std::map<std::string, BoneInfo>& getBoneInfoMap() const { return m_boneInfoMap; }
     int getBoneCount() const { return m_boneCounter; }
+    // Animation clips extracted from the model, ready to drive an AnimationComponent (#287).
+    const std::vector<Animation>& getAnimations() const { return m_animations; }
 
     // True if any mesh carries bone weights, i.e. the model needs the skinned vertex
     // path (used to pick the skinned shadow-depth program, issue #266).
