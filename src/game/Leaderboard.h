@@ -154,6 +154,11 @@ public:
             existing->submittedAt = submittedAt;
             res.improved = true;
         }
+        // Keep the winning trace so a rank's ghost can be fetched later (issue #272).
+        // Only on an improvement, so the stored trace always matches the ranked time.
+        if (res.improved) {
+            m_bestTraces[code][player] = trace;
+        }
         res.rank = rankOf(code, player);
         return res;
     }
@@ -183,6 +188,33 @@ public:
         return it == m_scores.end() ? 0 : it->second.size();
     }
 
+    /// The stored level JSON for a code (needed to bind/verify a ghost share, #272).
+    bool levelJson(const std::string& code, std::string& out) const {
+        auto it = m_levels.find(code);
+        if (it == m_levels.end()) return false;
+        out = it->second;
+        return true;
+    }
+
+    /// The best (ranked) trace a player submitted on a level, for ghost playback (#272).
+    bool bestTrace(const std::string& code, const std::string& player, RunTrace& out) const {
+        auto lit = m_bestTraces.find(code);
+        if (lit == m_bestTraces.end()) return false;
+        auto pit = lit->second.find(player);
+        if (pit == lit->second.end()) return false;
+        out = pit->second;
+        return true;
+    }
+
+    /// The best trace of the @p rank-th (1-based) player on a level, plus their name.
+    bool ghostForRank(const std::string& code, int rank, RunTrace& out, std::string& player) const {
+        if (rank < 1) return false;
+        const std::vector<ScoreEntry> board = top(code, kMaxInputs);
+        if (static_cast<std::size_t>(rank) > board.size()) return false;
+        player = board[static_cast<std::size_t>(rank - 1)].player;
+        return bestTrace(code, player, out);
+    }
+
 private:
     static bool rankLess(const ScoreEntry& a, const ScoreEntry& b) {
         if (a.clearTime != b.clearTime) return a.clearTime < b.clearTime;
@@ -194,6 +226,9 @@ private:
     double m_fixedDt;
     std::unordered_map<std::string, std::string> m_levels;
     std::unordered_map<std::string, std::vector<ScoreEntry>> m_scores;
+    // Best trace per (level, player) for ghost replays (issue #272). Kept in step with
+    // m_scores: written only when a submission improves the player's ranked time.
+    std::unordered_map<std::string, std::unordered_map<std::string, RunTrace>> m_bestTraces;
 };
 
 } // namespace game
