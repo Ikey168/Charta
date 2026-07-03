@@ -543,6 +543,13 @@ add_executable(test_versus
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus.cpp
 )
 
+# Performance-regression gate (#295): times deterministic workloads and compares
+# ratio-normalized results to a committed baseline. Not a headless CTest (it is
+# timing-based); run in its own CI job via --check.
+add_executable(perf_gate
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/perf_gate.cpp
+)
+
 # Desync detection + diagnostics + input-log replay (Milestone 14 / #161) - header-only.
 add_executable(test_desync
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync.cpp

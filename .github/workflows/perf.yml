@@ -1,0 +1,40 @@
+name: Performance
+
+# Performance-regression gate (issue #295). The benchmark cores had tests but nothing
+# failed CI on a slowdown, only on a crash. perf_gate (tools/perf_gate.cpp) times a set of
+# deterministic, CPU-bound workloads built on the header-only sim/game cores and compares
+# ratio-normalized results (each workload relative to a fixed calibration loop, so the
+# numbers are roughly machine-independent) against a committed baseline. A metric that
+# regresses beyond the tolerance fails the job with a per-metric diff.
+#
+# The gate is deliberately noise-tolerant: ratio normalization removes CPU-speed
+# differences, each workload is auto-scaled and reported as the median of several
+# repetitions after warm-up, and the tolerance is generous (+75%), so only a gross
+# regression trips it.
+#
+# To refresh the baseline intentionally (after a legitimate perf change), run:
+#   g++ -std=c++17 -O2 -I src tools/perf_gate.cpp -o perf_gate
+#   ./perf_gate --emit > tools/perf_baseline.csv
+# and commit tools/perf_baseline.csv.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  perf-gate:
+    name: Performance regression gate
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build perf_gate
+      # Header-only cores: no engine build or external dependencies needed.
+      run: g++ -std=c++17 -O2 -I src tools/perf_gate.cpp -o perf_gate
+
+    - name: Check performance against baseline
+      run: ./perf_gate --check tools/perf_baseline.csv --tolerance 0.75
