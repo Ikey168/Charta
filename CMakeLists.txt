@@ -637,6 +637,12 @@ add_executable(test_leaderboard
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_leaderboard.cpp
 )
 
+# Shareable ghost replays: content-verified trace codec + deterministic playback
+# alongside a live run, bound to the level (#272) - header-only.
+add_executable(test_ghost_replay
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ghost_replay.cpp
+)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
