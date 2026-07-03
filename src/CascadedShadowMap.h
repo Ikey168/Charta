@@ -24,7 +24,7 @@ namespace IKore {
 
 class CascadedShadowMap {
 public:
-    static const int kMaxCascades = 4;
+    static constexpr int kMaxCascades = 4;
 
     explicit CascadedShadowMap(int cascadeCount = 4, int resolution = 2048);
     ~CascadedShadowMap();

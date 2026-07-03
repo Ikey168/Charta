@@ -49,11 +49,11 @@ static void testRegisterAndRebind() {
     CHECK(!map.hasAction("Nope"));
     CHECK(map.actionName(0) == "MoveForward"); // registration order preserved
 
-    CHECK(map.binding("MoveForward") == (InputBinding{InputDevice::Keyboard, KEY_W}));
+    CHECK(map.binding("MoveForward") == (InputMapBinding{InputDevice::Keyboard, KEY_W}));
 
     // Rebinding takes effect immediately.
     map.rebind("MoveForward", {InputDevice::Keyboard, KEY_S});
-    CHECK(map.binding("MoveForward") == (InputBinding{InputDevice::Keyboard, KEY_S}));
+    CHECK(map.binding("MoveForward") == (InputMapBinding{InputDevice::Keyboard, KEY_S}));
 
     // Unbind clears it; unbound never matches a reverse lookup.
     map.unbind("Fire");
@@ -63,7 +63,7 @@ static void testRegisterAndRebind() {
     // Duplicate registration is ignored.
     map.addAction("Jump", {InputDevice::Keyboard, 999});
     CHECK(map.actionCount() == 3);
-    CHECK(map.binding("Jump") == (InputBinding{InputDevice::Keyboard, KEY_SPACE}));
+    CHECK(map.binding("Jump") == (InputMapBinding{InputDevice::Keyboard, KEY_SPACE}));
 }
 
 static void testReverseLookup() {
@@ -104,16 +104,16 @@ static void testResetToDefaults() {
     InputMap map;
     map.addAction("Jump", {InputDevice::Keyboard, KEY_SPACE});
     map.rebind("Jump", {InputDevice::Gamepad, 0});
-    CHECK(map.binding("Jump") == (InputBinding{InputDevice::Gamepad, 0}));
+    CHECK(map.binding("Jump") == (InputMapBinding{InputDevice::Gamepad, 0}));
     map.resetToDefaults();
-    CHECK(map.binding("Jump") == (InputBinding{InputDevice::Keyboard, KEY_SPACE}));
+    CHECK(map.binding("Jump") == (InputMapBinding{InputDevice::Keyboard, KEY_SPACE}));
 }
 
 static void testBindingStringRoundTrip() {
-    const InputBinding key{InputDevice::Keyboard, 65};
-    const InputBinding mouse{InputDevice::Mouse, 2};
-    const InputBinding pad{InputDevice::Gamepad, 7};
-    const InputBinding none{};
+    const InputMapBinding key{InputDevice::Keyboard, 65};
+    const InputMapBinding mouse{InputDevice::Mouse, 2};
+    const InputMapBinding pad{InputDevice::Gamepad, 7};
+    const InputMapBinding none{};
 
     CHECK(bindingFromString(toString(key)) == key);
     CHECK(bindingFromString(toString(mouse)) == mouse);
@@ -138,15 +138,15 @@ static void testSerializeRoundTrip() {
     b.addAction("Fire");
     b.addAction("Menu");
     b.load(text);
-    CHECK(b.binding("MoveForward") == (InputBinding{InputDevice::Keyboard, KEY_W}));
-    CHECK(b.binding("Fire") == (InputBinding{InputDevice::Mouse, 1}));
-    CHECK(b.binding("Menu") == (InputBinding{InputDevice::Gamepad, 4}));
+    CHECK(b.binding("MoveForward") == (InputMapBinding{InputDevice::Keyboard, KEY_W}));
+    CHECK(b.binding("Fire") == (InputMapBinding{InputDevice::Mouse, 1}));
+    CHECK(b.binding("Menu") == (InputMapBinding{InputDevice::Gamepad, 4}));
 
     // Unknown actions in the text are ignored.
     InputMap c;
     c.addAction("MoveForward");
     c.load("MoveForward=keyboard:5\nUnknownAction=mouse:3\n");
-    CHECK(c.binding("MoveForward") == (InputBinding{InputDevice::Keyboard, 5}));
+    CHECK(c.binding("MoveForward") == (InputMapBinding{InputDevice::Keyboard, 5}));
     CHECK(!c.hasAction("UnknownAction"));
 }
 
@@ -164,8 +164,8 @@ static void testPersistAcrossSessions() {
     second.addAction("Jump", {InputDevice::Keyboard, KEY_SPACE});
     second.addAction("Fire", {InputDevice::Mouse, 0});
     CHECK(second.loadFromFile(path));
-    CHECK(second.binding("Jump") == (InputBinding{InputDevice::Gamepad, 1}));
-    CHECK(second.binding("Fire") == (InputBinding{InputDevice::Mouse, 0}));
+    CHECK(second.binding("Jump") == (InputMapBinding{InputDevice::Gamepad, 1}));
+    CHECK(second.binding("Fire") == (InputMapBinding{InputDevice::Mouse, 0}));
 
     CHECK(!second.loadFromFile("no_such_input_file_54321.ini"));
 

@@ -186,7 +186,7 @@ private:
     // Logging + in-engine viewer (#63): structured logs feed the console (#54) and a
     // file sink; the viewer filters by level/category and tails in real time.
     LogSystem m_log;
-    int m_logFilterLevel{0};   // index into LogLevel for the viewer's min level
+    int m_logFilterLevel{0};   // index into LogViewerLevel for the viewer's min level
     int m_logCategoryIndex{0}; // 0 = all categories
     bool m_logAutoScroll{true};
     float m_logClock{0.0f};    // paces the demo heartbeat log

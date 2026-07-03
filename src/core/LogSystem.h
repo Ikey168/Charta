@@ -26,22 +26,22 @@
  */
 namespace IKore {
 
-enum class LogLevel { Trace, Debug, Info, Warning, Error };
+enum class LogViewerLevel { Trace, Debug, Info, Warning, Error };
 
-inline const char* logLevelName(LogLevel level) {
+inline const char* logLevelName(LogViewerLevel level) {
     switch (level) {
-        case LogLevel::Trace: return "TRACE";
-        case LogLevel::Debug: return "DEBUG";
-        case LogLevel::Info: return "INFO";
-        case LogLevel::Warning: return "WARN";
-        case LogLevel::Error: return "ERROR";
+        case LogViewerLevel::Trace: return "TRACE";
+        case LogViewerLevel::Debug: return "DEBUG";
+        case LogViewerLevel::Info: return "INFO";
+        case LogViewerLevel::Warning: return "WARN";
+        case LogViewerLevel::Error: return "ERROR";
     }
     return "?";
 }
 
 struct LogRecord {
     std::uint64_t index{0};
-    LogLevel level{LogLevel::Info};
+    LogViewerLevel level{LogViewerLevel::Info};
     std::string category;
     std::string message;
 
@@ -68,11 +68,11 @@ public:
     explicit LogSystem(std::size_t capacity = 1000)
         : m_capacity(capacity == 0 ? 1 : capacity) {}
 
-    void setMinLevel(LogLevel level) { m_minLevel = level; }
-    LogLevel minLevel() const { return m_minLevel; }
+    void setMinLevel(LogViewerLevel level) { m_minLevel = level; }
+    LogViewerLevel minLevel() const { return m_minLevel; }
 
     /// Log a message. Dropped on one branch if below the minimum level.
-    void log(LogLevel level, const std::string& category, const std::string& message) {
+    void log(LogViewerLevel level, const std::string& category, const std::string& message) {
         if (static_cast<int>(level) < static_cast<int>(m_minLevel)) return;
 
         LogRecord record{m_nextIndex++, level, category, message};
@@ -83,7 +83,7 @@ public:
 
         if (m_file.is_open()) {
             m_file << record.format() << "\n";
-            if (level == LogLevel::Error) m_file.flush(); // errors persist immediately
+            if (level == LogViewerLevel::Error) m_file.flush(); // errors persist immediately
         }
         for (const Sink& sink : m_sinks) {
             if (sink) sink(record);
@@ -91,19 +91,19 @@ public:
     }
 
     void trace(const std::string& category, const std::string& message) {
-        log(LogLevel::Trace, category, message);
+        log(LogViewerLevel::Trace, category, message);
     }
     void debug(const std::string& category, const std::string& message) {
-        log(LogLevel::Debug, category, message);
+        log(LogViewerLevel::Debug, category, message);
     }
     void info(const std::string& category, const std::string& message) {
-        log(LogLevel::Info, category, message);
+        log(LogViewerLevel::Info, category, message);
     }
     void warning(const std::string& category, const std::string& message) {
-        log(LogLevel::Warning, category, message);
+        log(LogViewerLevel::Warning, category, message);
     }
     void error(const std::string& category, const std::string& message) {
-        log(LogLevel::Error, category, message);
+        log(LogViewerLevel::Error, category, message);
     }
 
     /// Bounded ring of recent records, oldest first (the viewer's tail).
@@ -112,9 +112,9 @@ public:
     std::uint64_t totalLogged() const { return m_nextIndex; }
 
     /// Cumulative count of records at or above @p level (a cheap summary stat).
-    std::size_t countAtLeast(LogLevel level) const {
+    std::size_t countAtLeast(LogViewerLevel level) const {
         std::size_t total = 0;
-        for (int i = static_cast<int>(level); i <= static_cast<int>(LogLevel::Error); ++i) {
+        for (int i = static_cast<int>(level); i <= static_cast<int>(LogViewerLevel::Error); ++i) {
             total += m_levelCounts[i];
         }
         return total;
@@ -126,7 +126,7 @@ public:
     }
 
     /// Snapshot of ring records at or above @p minLevel, optionally one category.
-    std::vector<LogRecord> filter(LogLevel minLevel, const std::string& category = "") const {
+    std::vector<LogRecord> filter(LogViewerLevel minLevel, const std::string& category = "") const {
         std::vector<LogRecord> out;
         for (const LogRecord& r : m_records) {
             if (static_cast<int>(r.level) < static_cast<int>(minLevel)) continue;
@@ -170,7 +170,7 @@ private:
     std::ofstream m_file;
     std::size_t m_capacity;
     std::uint64_t m_nextIndex{0};
-    LogLevel m_minLevel{LogLevel::Trace};
+    LogViewerLevel m_minLevel{LogViewerLevel::Trace};
     std::size_t m_levelCounts[5]{0, 0, 0, 0, 0};
 };
 
