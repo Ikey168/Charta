@@ -658,6 +658,12 @@ add_executable(test_ghost_replay
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ghost_replay.cpp
 )
 
+# Async ghost race: live run vs a shared ghost, lead + finish order, level-bound (#292)
+# - header-only.
+add_executable(test_ghost_race
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ghost_race.cpp
+)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
@@ -913,6 +919,7 @@ set(HEADLESS_TESTS
     test_file_watcher
     test_frame_graph
     test_geojson_importer
+    test_ghost_race
     test_ghost_replay
     test_glyph_net
     test_hud_framework
