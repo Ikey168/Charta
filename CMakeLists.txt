@@ -613,6 +613,11 @@ add_executable(test_dungeon_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_game.cpp
 )
 
+# GeoJSON/OSM map data -> playable DungeonGame world (#313) - header-only.
+add_executable(test_city_game
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
+)
+
 # Headless tower-defense mode on the room topology: doorway-graph pathing, tower
 # damage, lives, win/lose, determinism (#271) - header-only.
 add_executable(test_tower_defense
@@ -956,6 +961,7 @@ set(HEADLESS_TESTS
     test_audio_decode
     test_audio_streaming
     test_benchmark
+    test_city_game
     test_crowd
     test_cv_robust
     test_data_export
