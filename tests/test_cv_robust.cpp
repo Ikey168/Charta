@@ -68,6 +68,44 @@ static Image makeRoom(int W, int H, int x0, int y0, int x1, int y1,
     return img;
 }
 
+// A HARD cast-shadow band: a vertical stripe darkened by a step (sharp edges), the
+// kind that survives illumination flattening as false vertical wall lines (issue #274).
+static void applyShadowBand(Image& img, int xa, int xb, float factor) {
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = xa; x <= xb && x < img.width; ++x) {
+            for (int c = 0; c < img.channels; ++c) img.set(x, y, c, clampByte(img.at(x, y, c) * factor));
+        }
+    }
+}
+
+// A table with a strong horizontal lighting gradient (bright left -> dark right),
+// with a flat kraft sheet + room outline composited in the center. The gradient
+// destabilizes a single border-mean background estimate (issue #274).
+static Image makeGradientTablePhoto(int W, int H) {
+    Image photo(W, H, 3);
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            const float g = 240.0f - (x / static_cast<float>(W - 1)) * 90.0f; // 240..150
+            photo.set(x, y, 0, clampByte(g));
+            photo.set(x, y, 1, clampByte(g));
+            photo.set(x, y, 2, clampByte(g + 2.0f));
+        }
+    }
+    // Flat kraft sheet in the center (unaffected by the table's lighting).
+    const int px0 = W / 4, py0 = H / 4, px1 = W - W / 4, py1 = H - H / 4;
+    for (int y = py0; y < py1; ++y) {
+        for (int x = px0; x < px1; ++x) { photo.set(x, y, 0, 185); photo.set(x, y, 1, 150); photo.set(x, y, 2, 110); }
+    }
+    // Room outline inside the sheet (dark ink, 3px).
+    auto ink = [&](int x, int y) {
+        if (x >= 0 && y >= 0 && x < W && y < H) { photo.set(x, y, 0, 30); photo.set(x, y, 1, 26); photo.set(x, y, 2, 22); }
+    };
+    const int rx0 = px0 + 8, ry0 = py0 + 8, rx1 = px1 - 8, ry1 = py1 - 8;
+    for (int x = rx0; x <= rx1; ++x) for (int t = -1; t <= 1; ++t) { ink(x, ry0 + t); ink(x, ry1 + t); }
+    for (int y = ry0; y <= ry1; ++y) for (int t = -1; t <= 1; ++t) { ink(rx0 + t, y); ink(rx1 + t, y); }
+    return photo;
+}
+
 // Smooth, edge-free uneven lighting (linear gradient * soft radial vignette).
 static void applySmoothLighting(Image& img) {
     const int W = img.width, H = img.height;
@@ -309,6 +347,71 @@ static void testCorpusOffAngleColoredPaperPhoto() {
     CHECK(!phase1Clean); // Phase 2 is the improvement
 }
 
+// New Phase 2b corpus case: a hard cast-shadow band across the paper (issue #274).
+// The shadow edges must not become false walls; the room comes out single and clean.
+static void testCorpusCastShadowBand() {
+    Image room = makeRoom(130, 130, 30, 30, 95, 90, 250, 250, 248);
+    applyShadowBand(room, 55, 75, 0.4f); // vertical band, hard edges at x=55 and x=75
+
+    RobustOptions opt;
+    opt.vec.gridSize = 8.0f;
+    opt.vec.minComponentArea = 8;
+
+    const std::vector<Polyline> walls = vectorizeWallsRobust(room, opt);
+    const Topology t = buildTopology(walls, 8.0f, 2);
+    CHECK(t.interiorRoomCount() == 1);   // one clean room, not split by the shadow edges
+    CHECK(t.ambiguousGaps == 0);
+    const Polyline* best = longestPolyline(walls);
+    CHECK(best != nullptr && isClosed(*best));
+    if (best) CHECK(isAxisAlignedOnGrid(*best, 8.0f));
+
+    // Without suppression the shadow edges leak in, so the result is strictly worse
+    // (extra rooms, ambiguous gaps, or a non-clean single room) - the fix is real.
+    RobustOptions off = opt;
+    off.suppressShadowEdges = false;
+    const std::vector<Polyline> wallsOff = vectorizeWallsRobust(room, off);
+    const Topology tOff = buildTopology(wallsOff, 8.0f, 2);
+    const bool cleanOff = tOff.interiorRoomCount() == 1 && tOff.ambiguousGaps == 0;
+    CHECK(!cleanOff);
+}
+
+// New Phase 2b corpus case: a strong lighting gradient across the table (issue #274).
+// The per-corner background estimate isolates the sheet where a single mean cannot.
+static void testCorpusGradientLitTable() {
+    const Image photo = makeGradientTablePhoto(160, 160);
+
+    // The single border mean is stranded mid-gradient, so a bright table pixel reads
+    // as far from it (a naive detector would mark the table as foreground)...
+    const std::vector<float> singleMean = estimateBackgroundColor(photo, 2);
+    float dTable = 0.0f;
+    for (int c = 0; c < 3; ++c) dTable += std::fabs(static_cast<float>(photo.at(6, 80, c)) - singleMean[static_cast<std::size_t>(c)]);
+    CHECK(dTable > 60.0f); // single mean misclassifies the lit table corner
+
+    // ...but the per-corner field tracks the gradient, so the table is background and
+    // only the sheet is foreground.
+    const Mask fg = foregroundMask(photo, 60.0f);
+    CHECK(fg.get(6, 80) == 0);   // bright-left table: background
+    CHECK(fg.get(154, 80) == 0); // dark-right table: background
+    CHECK(fg.get(80, 80) == 1);  // the sheet: foreground
+
+    // The paper quad is recovered tightly around the sheet ([40,40]..[119,119]).
+    const Quad q = detectPaperQuadRobust(photo, 60.0f);
+    CHECK(nearf(q.tl.x, 40, 6) && nearf(q.tl.y, 40, 6));
+    CHECK(nearf(q.br.x, 119, 6) && nearf(q.br.y, 119, 6));
+
+    // End to end: rectify -> vectorize -> topology yields one clean, closed room.
+    const Image rect = rectifyRobust(photo, 100, 60.0f);
+    RobustOptions opt;
+    opt.vec.gridSize = 8.0f;
+    opt.vec.minComponentArea = 8;
+    const std::vector<Polyline> walls = vectorizeWallsRobust(rect, opt);
+    const Topology t = buildTopology(walls, 8.0f, 2);
+    CHECK(t.interiorRoomCount() == 1);
+    CHECK(t.ambiguousGaps == 0);
+    const Polyline* best = longestPolyline(walls);
+    CHECK(best != nullptr && isClosed(*best));
+}
+
 int main() {
     testFlattenCancelsShadow();
     testSkewEstimateAndDeskew();
@@ -318,6 +421,8 @@ int main() {
     testCorpusCleanRoomUnchanged();
     testCorpusUnevenLitTintedRoom();
     testCorpusOffAngleColoredPaperPhoto();
+    testCorpusCastShadowBand();
+    testCorpusGradientLitTable();
 
     if (g_failures == 0) {
         std::printf("All CV robustness tests passed.\n");
