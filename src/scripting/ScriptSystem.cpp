@@ -69,31 +69,31 @@ void ScriptSystem::registerBindings() {
         "angular", &Velocity::angular);
 
     // Entity is an opaque handle (index + generation), read-only from Lua.
-    lua.new_usertype<Entity>("Entity",
-        "index", sol::readonly(&Entity::index),
-        "generation", sol::readonly(&Entity::generation));
+    lua.new_usertype<ecs::Entity>("Entity",
+        "index", sol::readonly(&ecs::Entity::index),
+        "generation", sol::readonly(&ecs::Entity::generation));
 
     // --- world: entity + component API ------------------------------------
     sol::table world = lua["world"].get_or_create<sol::table>();
     world.set_function("create", [this]() { return m_registry.create(); });
-    world.set_function("destroy", [this](Entity e) { m_registry.destroy(e); });
-    world.set_function("valid", [this](Entity e) { return m_registry.isValid(e); });
+    world.set_function("destroy", [this](ecs::Entity e) { m_registry.destroy(e); });
+    world.set_function("valid", [this](ecs::Entity e) { return m_registry.isValid(e); });
 
-    world.set_function("add_transform", [this](Entity e, sol::optional<Transform> t) {
+    world.set_function("add_transform", [this](ecs::Entity e, sol::optional<Transform> t) {
         m_registry.add<Transform>(e, t.value_or(Transform{}));
     });
-    world.set_function("has_transform", [this](Entity e) { return m_registry.has<Transform>(e); });
-    world.set_function("get_transform", [this](Entity e) { return m_registry.get<Transform>(e); });
-    world.set_function("set_transform", [this](Entity e, Transform t) {
+    world.set_function("has_transform", [this](ecs::Entity e) { return m_registry.has<Transform>(e); });
+    world.set_function("get_transform", [this](ecs::Entity e) { return m_registry.get<Transform>(e); });
+    world.set_function("set_transform", [this](ecs::Entity e, Transform t) {
         if (m_registry.has<Transform>(e)) m_registry.get<Transform>(e) = t;
     });
 
-    world.set_function("add_velocity", [this](Entity e, sol::optional<Velocity> v) {
+    world.set_function("add_velocity", [this](ecs::Entity e, sol::optional<Velocity> v) {
         m_registry.add<Velocity>(e, v.value_or(Velocity{}));
     });
-    world.set_function("has_velocity", [this](Entity e) { return m_registry.has<Velocity>(e); });
-    world.set_function("get_velocity", [this](Entity e) { return m_registry.get<Velocity>(e); });
-    world.set_function("set_velocity", [this](Entity e, Velocity v) {
+    world.set_function("has_velocity", [this](ecs::Entity e) { return m_registry.has<Velocity>(e); });
+    world.set_function("get_velocity", [this](ecs::Entity e) { return m_registry.get<Velocity>(e); });
+    world.set_function("set_velocity", [this](ecs::Entity e, Velocity v) {
         if (m_registry.has<Velocity>(e)) m_registry.get<Velocity>(e) = v;
     });
 
