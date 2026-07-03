@@ -538,6 +538,11 @@ add_executable(test_doodle_rollback
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_rollback.cpp
 )
 
+# Real-time two-player versus over the rollback session (#293) - header-only.
+add_executable(test_versus
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus.cpp
+)
+
 # Desync detection + diagnostics + input-log replay (Milestone 14 / #161) - header-only.
 add_executable(test_desync
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync.cpp
@@ -967,6 +972,7 @@ set(HEADLESS_TESTS
     test_tower_defense
     test_ui_scaling
     test_vectorize
+    test_versus
     test_vertical_slice
     test_weekly_challenge
 )
