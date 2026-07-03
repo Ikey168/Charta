@@ -2,6 +2,7 @@
 
 #include "game/DoodleScene.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <string>
@@ -44,8 +45,25 @@ struct Coin {
     bool collected{false};
 };
 
+/// Selectable enemy behavior (#320). Chase is the default and reproduces the
+/// original single chaser byte-for-byte.
+enum class EnemyBehavior { Chase, Patrol, Flee, Ranged };
+
 struct Enemy {
     ecs::Vec3 position{};
+    EnemyBehavior behavior{EnemyBehavior::Chase};
+    ecs::Vec3 home{};        ///< anchor for patrol (oscillates around it).
+    int patrolAxis{0};       ///< 0 = X, 1 = Z.
+    int patrolDir{1};        ///< current patrol direction (+1 / -1).
+    float patrolRange{3.0f}; ///< patrol amplitude around home.
+    float fireCooldown{0.0f};///< ranged: seconds until the next shot.
+};
+
+/// A projectile fired by a Ranged enemy; contact is a loss (#320).
+struct Projectile {
+    ecs::Vec3 position{};
+    ecs::Vec3 velocity{};
+    float life{0.0f};
 };
 
 // --- Optional richer drawable semantics (issue #319) -------------------------
@@ -102,6 +120,9 @@ struct DungeonGame {
     std::vector<ToggleWall> toggleWalls;
     std::vector<Hazard> hazards;
 
+    // Live ranged-enemy projectiles (#320); empty unless a Ranged enemy has fired.
+    std::vector<Projectile> projectiles;
+
     // Tunables.
     float playerSpeed{4.0f};
     float enemySpeed{2.0f};
@@ -113,6 +134,10 @@ struct DungeonGame {
     float switchRadius{0.5f};
     float hazardRadius{0.4f};
     float featureSize{1.0f}; ///< footprint of a spawned locked door / toggle wall.
+    float projectileSpeed{6.0f};      ///< ranged projectile speed.
+    float projectileRadius{0.25f};    ///< projectile hit radius.
+    float rangedFireInterval{1.0f};   ///< seconds between ranged shots.
+    float projectileLife{3.0f};       ///< projectile lifetime before it expires.
 
     // Runtime.
     GameStatus status{GameStatus::Playing};
@@ -178,20 +203,77 @@ struct DungeonGame {
             }
         }
 
-        // Enemies chase the player; contact is a loss.
+        // Enemies act by behavior (#320); direct contact is always a loss. The default
+        // Chase branch is the original chaser, so a classic enemy is byte-identical.
         for (Enemy& e : enemies) {
-            const float dx = playerPosition.x - e.position.x;
-            const float dz = playerPosition.z - e.position.z;
-            const float d = std::sqrt(dx * dx + dz * dz);
-            if (d > 1e-6f) {
-                const float step = enemySpeed * dt;
-                e.position = slideMove(e.position, (dx / d) * step, (dz / d) * step, enemyRadius);
+            switch (e.behavior) {
+                case EnemyBehavior::Chase: {
+                    const float dx = playerPosition.x - e.position.x;
+                    const float dz = playerPosition.z - e.position.z;
+                    const float d = std::sqrt(dx * dx + dz * dz);
+                    if (d > 1e-6f) {
+                        const float step = enemySpeed * dt;
+                        e.position = slideMove(e.position, (dx / d) * step, (dz / d) * step, enemyRadius);
+                    }
+                    break;
+                }
+                case EnemyBehavior::Flee: {
+                    const float dx = e.position.x - playerPosition.x;
+                    const float dz = e.position.z - playerPosition.z;
+                    const float d = std::sqrt(dx * dx + dz * dz);
+                    if (d > 1e-6f) {
+                        const float step = enemySpeed * dt;
+                        e.position = slideMove(e.position, (dx / d) * step, (dz / d) * step, enemyRadius);
+                    }
+                    break;
+                }
+                case EnemyBehavior::Patrol: {
+                    const float step = enemySpeed * dt * static_cast<float>(e.patrolDir);
+                    const float mx = e.patrolAxis == 0 ? step : 0.0f;
+                    const float mz = e.patrolAxis == 1 ? step : 0.0f;
+                    const ecs::Vec3 moved = slideMove(e.position, mx, mz, enemyRadius);
+                    const bool stuck = moved.x == e.position.x && moved.z == e.position.z;
+                    e.position = moved;
+                    const float along = e.patrolAxis == 0 ? (e.position.x - e.home.x) : (e.position.z - e.home.z);
+                    if (std::fabs(along) >= e.patrolRange || stuck) e.patrolDir = -e.patrolDir;
+                    break;
+                }
+                case EnemyBehavior::Ranged: {
+                    e.fireCooldown -= dt;
+                    if (e.fireCooldown <= 0.0f) {
+                        const float dx = playerPosition.x - e.position.x;
+                        const float dz = playerPosition.z - e.position.z;
+                        const float d = std::sqrt(dx * dx + dz * dz);
+                        if (d > 1e-6f) {
+                            projectiles.push_back(Projectile{
+                                e.position,
+                                ecs::Vec3{(dx / d) * projectileSpeed, 0.0f, (dz / d) * projectileSpeed},
+                                projectileLife});
+                        }
+                        e.fireCooldown = rangedFireInterval;
+                    }
+                    break;
+                }
             }
             if (within(playerPosition, e.position, playerRadius + enemyRadius)) {
                 status = GameStatus::Lost;
                 return;
             }
         }
+
+        // Advance projectiles; contact is a loss, and expired ones are removed (#320).
+        for (Projectile& p : projectiles) {
+            p.position.x += p.velocity.x * dt;
+            p.position.z += p.velocity.z * dt;
+            p.life -= dt;
+            if (within(playerPosition, p.position, playerRadius + projectileRadius)) {
+                status = GameStatus::Lost;
+                return;
+            }
+        }
+        projectiles.erase(std::remove_if(projectiles.begin(), projectiles.end(),
+                                         [](const Projectile& p) { return p.life <= 0.0f; }),
+                          projectiles.end());
 
         // Win: every coin collected and standing on the exit.
         if (coinsCollected >= totalCoins && hasExit &&
@@ -295,8 +377,19 @@ inline DungeonGame loadGame(const SceneDescription& scene) {
         const std::string base = detail::featureBase(s.type, id);
         if (base == "player") {
             game.playerPosition = s.position;
-        } else if (base == "enemy") {
-            game.enemies.push_back(Enemy{s.position});
+        } else if (base == "enemy" || base == "enemy_patrol" || base == "enemy_flee" ||
+                   base == "enemy_ranged") {
+            Enemy e;
+            e.position = s.position;
+            e.home = s.position;
+            if (base == "enemy_patrol") {
+                e.behavior = EnemyBehavior::Patrol;
+            } else if (base == "enemy_flee") {
+                e.behavior = EnemyBehavior::Flee;
+            } else if (base == "enemy_ranged") {
+                e.behavior = EnemyBehavior::Ranged;
+            }
+            game.enemies.push_back(e);
         } else if (base == "treasure" || base == "coin") {
             game.coins.push_back(Coin{s.position, false});
         } else if (base == "door" || base == "exit") {
