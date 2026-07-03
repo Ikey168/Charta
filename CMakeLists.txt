@@ -618,6 +618,11 @@ add_executable(test_city_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
 )
 
+# Deterministic solvability validator + auto-solver over DungeonGame rules (#316) - header-only.
+add_executable(test_solver
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_solver.cpp
+)
+
 # Headless tower-defense mode on the room topology: doorway-graph pathing, tower
 # damage, lives, win/lose, determinism (#271) - header-only.
 add_executable(test_tower_defense
@@ -1026,6 +1031,7 @@ set(HEADLESS_TESTS
     test_simulation
     test_skinned_shadow
     test_skinning
+    test_solver
     test_ssao_kernel
     test_svg_floorplan
     test_symbol_recognizer
