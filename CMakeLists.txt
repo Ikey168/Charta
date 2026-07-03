@@ -308,6 +308,20 @@ add_executable(test_skinned_animation
 )
 target_link_libraries(test_skinned_animation PRIVATE glfw glad glm stb_image assimp OpenGL::GL BulletDynamics BulletCollision LinearMath ${OPENAL_LIBRARIES})
 
+# Skinned-render golden-image test (issue #287 / #290): renders the animated model through
+# the real skinned vertex program to an FBO and compares to a committed golden. Engine- and
+# GL-linked; registered as a gl-labelled test below.
+add_executable(render_skinned_golden
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/render_skinned_golden.cpp
+    ${CORE_SOURCES}
+    ${AUDIO_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Shader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Frustum.cpp
+)
+target_link_libraries(render_skinned_golden PRIVATE glfw glad glm stb_image assimp OpenGL::GL BulletDynamics BulletCollision LinearMath ${OPENAL_LIBRARIES})
+
 # MeshComponent Minimal Test executable  
 add_executable(test_mesh_component_minimal 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/test_mesh_component_minimal.cpp 
@@ -1085,4 +1099,14 @@ endif()
 # test_skinned_animation loads assets/models/animated_bone.gltf by relative path (issue #287).
 if(TARGET test_skinned_animation)
     set_tests_properties(test_skinned_animation PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+# Skinned-render golden test (issue #287 / #290): run the render_skinned_golden tool in
+# --check mode against the committed golden, under the gl label + Xvfb (it loads the model,
+# shaders and golden by relative path, so it runs from the repo root). Regenerate the golden
+# with: render_skinned_golden --emit tools/golden/skinned.ppm  (from the repo root).
+if(TARGET render_skinned_golden)
+    add_test(NAME test_skinned_golden COMMAND render_skinned_golden --check tools/golden/skinned.ppm)
+    set_tests_properties(test_skinned_golden PROPERTIES LABELS gl WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    add_dependencies(gl_tests render_skinned_golden)
 endif()
