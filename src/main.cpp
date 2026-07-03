@@ -85,12 +85,13 @@ IKore::ParticleSystemManager* g_particleManager = nullptr;
 // Global shadow map manager for keyboard callbacks
 IKore::ShadowMapManager* g_shadowManager = nullptr;
 
-// Cascaded shadow maps for the directional light (issue #265). Opt-in: while
-// g_useCascadedShadows is false the directional light keeps the original single map
-// and the render is unchanged. Toggle with K; cycle the split lambda with J.
+// Cascaded shadow maps for the directional light (issue #265), on by default (issue #289):
+// the cascade count and split lambda are derived from the camera near/far at startup (see
+// the CSM setup in main). Toggle back to the single directional map with K (count == 1 also
+// degrades to that single-map behavior); cycle the split lambda with J.
 IKore::CascadedShadowMap* g_cascadedShadowMap = nullptr;
-bool g_useCascadedShadows = false;
-float g_cascadeSplitLambda = 0.5f;   // 0 uniform .. 1 logarithmic split
+bool g_useCascadedShadows = true;
+float g_cascadeSplitLambda = 0.5f;   // 0 uniform .. 1 logarithmic split; derived at startup
 float g_cascadeBlendBand = 2.0f;     // view-depth width of the cross-cascade seam blend
 
 // Global frustum culler for rendering optimization
@@ -578,10 +579,19 @@ int main() {
         LOG_INFO("Directional shadow map created successfully");
     }
 
-    // Cascaded shadow map for the directional light (issue #265). Additive and
-    // opt-in: it is only used while g_useCascadedShadows is true (toggle with K), so
-    // the default path stays the single directional map above.
-    IKore::CascadedShadowMap cascadedShadowMap(4 /* cascades */, 2048);
+    // Cascaded shadow map for the directional light (issue #265), on by default (issue
+    // #289). Derive a sensible cascade count and split lambda from the camera depth range:
+    // a larger far/near benefits from more cascades and a more logarithmic split (sharper
+    // near field); a small range degrades toward a single fitted map. This is parameter
+    // selection only - the split/fit math stays in the tested render::ShadowCascades core
+    // (computeCascades, below). Toggle back to the single map with K.
+    const float csmDepthRatio = camera.farPlane / std::max(camera.nearPlane, 1e-4f);
+    int csmCascadeCount = 1;
+    if (csmDepthRatio >= 500.0f)      csmCascadeCount = 4;
+    else if (csmDepthRatio >= 100.0f) csmCascadeCount = 3;
+    else if (csmDepthRatio >= 20.0f)  csmCascadeCount = 2;
+    g_cascadeSplitLambda = 0.4f + 0.1f * static_cast<float>(csmCascadeCount); // 0.5 .. 0.8
+    IKore::CascadedShadowMap cascadedShadowMap(csmCascadeCount, 2048);
     if (!cascadedShadowMap.initialize()) {
         LOG_WARNING("Failed to create cascaded shadow map - CSM path will be unavailable");
     } else {
