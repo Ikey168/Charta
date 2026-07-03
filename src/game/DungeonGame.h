@@ -32,6 +32,10 @@ enum class GameStatus { Playing, Won, Lost };
 struct GameInput {
     float moveX{0.0f};
     float moveZ{0.0f};
+
+    /// Exact equality, so a rollback session can detect a mispredicted input (#291).
+    bool operator==(const GameInput& o) const { return moveX == o.moveX && moveZ == o.moveZ; }
+    bool operator!=(const GameInput& o) const { return !(*this == o); }
 };
 
 struct Coin {

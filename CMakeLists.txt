@@ -533,6 +533,11 @@ add_executable(test_rollback
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rollback.cpp
 )
 
+# Doodle game adapter for the rollback netcode core (#291) - header-only.
+add_executable(test_doodle_rollback
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_rollback.cpp
+)
+
 # Desync detection + diagnostics + input-log replay (Milestone 14 / #161) - header-only.
 add_executable(test_desync
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync.cpp
@@ -898,6 +903,7 @@ set(HEADLESS_TESTS
     test_desync
     test_determinism
     test_doodle_library
+    test_doodle_rollback
     test_doodle_scene
     test_dungeon_game
     test_ecs_benchmark
