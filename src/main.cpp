@@ -531,6 +531,14 @@ int main() {
         LOG_ERROR(std::string("Shader file load/compile failed: ") + shaderError);
     }
 
+    // Skinned forward program (issue #287): skins the vertex (skinned_phong.vert) and
+    // reuses the Blinn-Phong fragment, so an animated mesh deforms in the lit pass. Selected
+    // per mesh by hasBones(); boneless meshes keep the shaderPtr / PBR path above unchanged.
+    auto skinnedForwardShaderPtr = IKore::Shader::loadFromFilesCached("src/shaders/skinned_phong.vert", "src/shaders/phong_shadows.frag", shaderError);
+    if(!skinnedForwardShaderPtr){
+        LOG_ERROR(std::string("Skinned forward shader file load/compile failed: ") + shaderError);
+    }
+
     // Opt-in metallic-roughness PBR program (issue #234). Only used to draw
     // materials that opt in; the Blinn-Phong path above is left untouched.
     auto pbrShaderPtr = IKore::Shader::loadFromFilesCached("src/shaders/pbr.vert", "src/shaders/pbr.frag", shaderError);
@@ -638,6 +646,12 @@ int main() {
         LOG_INFO("Successfully loaded model with " + std::to_string(cubeModel.getMeshes().size()) + " meshes");
     }
 
+    // Bone-palette source for the skinned forward + shadow passes (issue #287). An animated
+    // model's AnimationComponent produces the per-frame palette via getBoneTransforms(); it
+    // is advanced in the render loop only when the model has bones. The cube here is static
+    // (no bones), so no palette is uploaded and the render is unchanged.
+    IKore::AnimationComponent modelAnimation;
+
     // Delta time tracking
     double lastFrameTime = glfwGetTime();
     double deltaTime = 0.0;
@@ -671,7 +685,16 @@ int main() {
         double currentFrameTime = glfwGetTime();
         deltaTime = currentFrameTime - lastFrameTime;
         lastFrameTime = currentFrameTime;
-        
+
+        // Advance the animated model and expose its bone palette to the skinned forward and
+        // shadow passes (issue #287). Only when the model has bones; a static model yields no
+        // palette, so both passes render exactly as before.
+        const std::vector<glm::mat4>* bonePalette = nullptr;
+        if (modelLoaded && cubeModel.hasBones()) {
+            modelAnimation.update(static_cast<float>(deltaTime));
+            bonePalette = &modelAnimation.getBoneTransforms();
+        }
+
         // Update statistics
         frameTimeAccumulator += deltaTime;
         frameCount++;
@@ -809,7 +832,7 @@ int main() {
                         skinnedShadowShaderPtr->use();
                         skinnedShadowShaderPtr->setMat4("lightSpaceMatrix", glm::value_ptr(mats[static_cast<std::size_t>(c)]));
                     }
-                    renderSceneObjects(shadowShaderPtr, VAO, modelLoaded, cubeModel, currentFrameTime, skinnedShadowShaderPtr);
+                    renderSceneObjects(shadowShaderPtr, VAO, modelLoaded, cubeModel, currentFrameTime, skinnedShadowShaderPtr, bonePalette);
                 }
                 g_cascadedShadowMap->endShadowPass();
             } else if (dirShadowMap && shadowShaderPtr) {
@@ -822,7 +845,7 @@ int main() {
                     skinnedShadowShaderPtr->use();
                     skinnedShadowShaderPtr->setMat4("lightSpaceMatrix", glm::value_ptr(lightSpaceMatrix));
                 }
-                renderSceneObjects(shadowShaderPtr, VAO, modelLoaded, cubeModel, currentFrameTime, skinnedShadowShaderPtr);
+                renderSceneObjects(shadowShaderPtr, VAO, modelLoaded, cubeModel, currentFrameTime, skinnedShadowShaderPtr, bonePalette);
                 dirShadowMap->endShadowPass();
             }
             // Point light shadow map needs a geometry-shader path; not rendered yet.
@@ -1020,6 +1043,69 @@ int main() {
 
             // Render models if available, otherwise fallback to primitive cubes
             if (modelLoaded && !cubeModel.getMeshes().empty()) {
+                // Skinned forward selection (issue #287): if the model has bones, draw it with
+                // the skinned program (skinned_phong.vert + the shared Phong fragment) so it
+                // deforms in the lit pass, uploading the bone palette from getBoneTransforms()
+                // clamped to the shader capacity. A static model has no palette (drawSkinned
+                // false), so the renderSelectable path below is taken unchanged. The skinned
+                // program is given the same frame lighting/shadow uniforms as the Phong path.
+                const bool drawSkinned = bonePalette != nullptr && skinnedForwardShaderPtr != nullptr;
+                if (drawSkinned) {
+                    skinnedForwardShaderPtr->use();
+                    skinnedForwardShaderPtr->setMat4("view", glm::value_ptr(view));
+                    skinnedForwardShaderPtr->setMat4("projection", glm::value_ptr(projection));
+                    const glm::vec3 skCam = camera.getPosition();
+                    skinnedForwardShaderPtr->setVec3("viewPos", skCam.x, skCam.y, skCam.z);
+                    skinnedForwardShaderPtr->setFloat("useDirLight", 1.0f);
+                    skinnedForwardShaderPtr->setVec3("dirLight.direction", dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
+                    skinnedForwardShaderPtr->setVec3("dirLight.ambient", dirLight.ambient.x, dirLight.ambient.y, dirLight.ambient.z);
+                    skinnedForwardShaderPtr->setVec3("dirLight.diffuse", dirLight.diffuse.x, dirLight.diffuse.y, dirLight.diffuse.z);
+                    skinnedForwardShaderPtr->setVec3("dirLight.specular", dirLight.specular.x, dirLight.specular.y, dirLight.specular.z);
+                    if (dirShadowMap) {
+                        skinnedForwardShaderPtr->setFloat("dirLight.castShadows", 1.0f);
+                        skinnedForwardShaderPtr->setMat4("dirLight.lightSpaceMatrix", glm::value_ptr(dirShadowMap->getLightSpaceMatrix()));
+                        skinnedForwardShaderPtr->setMat4("lightSpaceMatrix", glm::value_ptr(dirShadowMap->getLightSpaceMatrix()));
+                        dirShadowMap->bindShadowMap(15);
+                        skinnedForwardShaderPtr->setInt("dirLight.shadowMap", 15);
+                    } else {
+                        skinnedForwardShaderPtr->setFloat("dirLight.castShadows", 0.0f);
+                    }
+                    // Cascaded shadow uniforms mirror the Phong path (issue #265/#289).
+                    if (g_useCascadedShadows && g_cascadedShadowMap) {
+                        skinnedForwardShaderPtr->setFloat("useCascades", 1.0f);
+                        const auto& skMats = g_cascadedShadowMap->lightMatrices();
+                        const auto& skSplits = g_cascadedShadowMap->splitDepths();
+                        const int skCount = g_cascadedShadowMap->cascadeCount();
+                        skinnedForwardShaderPtr->setInt("dirCascadeCount", skCount);
+                        for (int c = 0; c < skCount; ++c) {
+                            const std::string idx = std::to_string(c);
+                            skinnedForwardShaderPtr->setMat4(("dirCascadeMatrices[" + idx + "]").c_str(), glm::value_ptr(skMats[static_cast<std::size_t>(c)]));
+                            skinnedForwardShaderPtr->setFloat(("dirCascadeSplits[" + idx + "]").c_str(), skSplits[static_cast<std::size_t>(c)]);
+                        }
+                        skinnedForwardShaderPtr->setMat4("cascadeViewMatrix", glm::value_ptr(view));
+                        skinnedForwardShaderPtr->setFloat("cascadeBlendBand", g_cascadeBlendBand);
+                        g_cascadedShadowMap->bindArray(14);
+                        skinnedForwardShaderPtr->setInt("dirCascadeMaps", 14);
+                    } else {
+                        skinnedForwardShaderPtr->setFloat("useCascades", 0.0f);
+                    }
+                    skinnedForwardShaderPtr->setFloat("numPointLights", 1.0f);
+                    skinnedForwardShaderPtr->setVec3("pointLights[0].position", pointLight.position.x, pointLight.position.y, pointLight.position.z);
+                    skinnedForwardShaderPtr->setVec3("pointLights[0].ambient", pointLight.ambient.x, pointLight.ambient.y, pointLight.ambient.z);
+                    skinnedForwardShaderPtr->setVec3("pointLights[0].diffuse", pointLight.diffuse.x, pointLight.diffuse.y, pointLight.diffuse.z);
+                    skinnedForwardShaderPtr->setVec3("pointLights[0].specular", pointLight.specular.x, pointLight.specular.y, pointLight.specular.z);
+                    skinnedForwardShaderPtr->setFloat("pointLights[0].constant", pointLight.constant);
+                    skinnedForwardShaderPtr->setFloat("pointLights[0].linear", pointLight.linear);
+                    skinnedForwardShaderPtr->setFloat("pointLights[0].quadratic", pointLight.quadratic);
+                    skinnedForwardShaderPtr->setFloat("pointLights[0].castShadows", 0.0f);
+                    // Upload the bone palette, clamped to the shader's finalBonesMatrices capacity.
+                    const int paletteCount = IKore::render::shadowPaletteUploadCount(static_cast<int>(bonePalette->size()));
+                    for (int b = 0; b < paletteCount; ++b) {
+                        skinnedForwardShaderPtr->setMat4(("finalBonesMatrices[" + std::to_string(b) + "]").c_str(),
+                                                         glm::value_ptr((*bonePalette)[static_cast<std::size_t>(b)]));
+                    }
+                }
+
                 // Create a larger grid of objects for better frustum culling demonstration
                 std::vector<glm::vec3> cubePositions;
                 
@@ -1056,11 +1142,18 @@ int main() {
                     renderedObjects++;
                     glm::mat3 cubeNormalMatrix = glm::mat3(glm::transpose(glm::inverse(instanceModel)));
 
-                    // Render the model instance, selecting the PBR or Blinn-Phong program
-                    // per mesh from Material::isPBR (issue #269). renderSelectable sets the
-                    // per-mesh matrices on the chosen program; boneless Phong meshes take
-                    // the existing path unchanged.
-                    cubeModel.renderSelectable(shaderPtr, pbrShaderPtr, instanceModel, cubeNormalMatrix);
+                    // Render the model instance. A skinned model (drawSkinned) uses the
+                    // skinned forward program set up above (issue #287); otherwise select the
+                    // PBR or Blinn-Phong program per mesh from Material::isPBR (issue #269).
+                    // renderSelectable sets the per-mesh matrices on the chosen program;
+                    // boneless meshes take the existing path unchanged.
+                    if (drawSkinned) {
+                        skinnedForwardShaderPtr->setMat4("model", glm::value_ptr(instanceModel));
+                        skinnedForwardShaderPtr->setMat3("normalMatrix", glm::value_ptr(cubeNormalMatrix));
+                        cubeModel.render(skinnedForwardShaderPtr);
+                    } else {
+                        cubeModel.renderSelectable(shaderPtr, pbrShaderPtr, instanceModel, cubeNormalMatrix);
+                    }
                 }
                 
                 // Log culling statistics periodically
