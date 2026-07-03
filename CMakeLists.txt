@@ -1047,11 +1047,7 @@ set(GL_TESTS
     test_physics_component
     test_physics_simple
     test_scene_graph
-    # Quarantined (issue #294): test_scripting does not build. src/scripting/ScriptSystem.cpp
-    # fails to compile with an ambiguous 'Entity' reference (the legacy IKore::Entity vs the
-    # archetype IKore::ecs::Entity), a pre-existing scripting/ECS namespace collision that is
-    # out of scope for this CI-gating change. Re-enable once ScriptSystem.cpp is fixed.
-    # test_scripting
+    test_scripting
 )
 
 set(_present_gl_tests "")
