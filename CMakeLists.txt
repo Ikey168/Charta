@@ -745,6 +745,12 @@ add_executable(test_replay
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_replay.cpp
 )
 
+# N-player (3-4) free-for-all versus over rollback: winner + standings, convergence,
+# anti-cheat record (#318) - header-only.
+add_executable(test_versus_ffa
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus_ffa.cpp
+)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
@@ -1054,6 +1060,7 @@ set(HEADLESS_TESTS
     test_ui_scaling
     test_vectorize
     test_versus
+    test_versus_ffa
     test_vertical_slice
     test_weekly_challenge
 )
