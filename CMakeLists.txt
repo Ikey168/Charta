@@ -654,6 +654,11 @@ add_executable(test_symbol_spawns
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbol_spawns.cpp
 )
 
+# Photographed drawing -> rectify (de-warp) -> recognized spawns -> playable (#315) - header-only.
+add_executable(test_photo_level
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_photo_level.cpp
+)
+
 # Phase 2 CV robustness: lighting/skew/paper/wobble + corpus (Milestone 16 / #239)
 # - header-only.
 add_executable(test_cv_robust
@@ -1006,6 +1011,7 @@ set(HEADLESS_TESTS
     test_pbr_material
     test_pbr_textures
     test_perf_stats
+    test_photo_level
     test_picking
     test_quest_gen
     test_rectify
