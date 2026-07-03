@@ -3,6 +3,7 @@
 #include "game/DoodleScene.h"
 
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,43 @@ struct Enemy {
     ecs::Vec3 position{};
 };
 
+// --- Optional richer drawable semantics (issue #319) -------------------------
+// All of these are absent from a classic level, so a level with none of them
+// plays byte-identically to the original move/collect/avoid/exit loop.
+
+/// A collectible key; collecting it opens every LockedDoor with the same @c id.
+struct Key {
+    ecs::Vec3 position{};
+    int id{0};
+    bool collected{false};
+};
+
+/// A door that blocks movement until a key of the same @c id is collected.
+struct LockedDoor {
+    world::Box box;
+    int id{0};
+    bool open{false};
+};
+
+/// A momentary switch; entering it toggles every ToggleWall with the same @c id.
+struct Switch {
+    ecs::Vec3 position{};
+    int id{0};
+    bool wasPressed{false};
+};
+
+/// A wall that a Switch flips between solid (blocks) and open.
+struct ToggleWall {
+    world::Box box;
+    int id{0};
+    bool solid{true};
+};
+
+/// A static hazard; touching it is a loss.
+struct Hazard {
+    ecs::Vec3 position{};
+};
+
 /// A self-contained, headless dungeon game built from a converted scene.
 struct DungeonGame {
     // Geometry + actors (populated by loadGame).
@@ -57,6 +95,13 @@ struct DungeonGame {
     ecs::Vec3 exitPosition{};
     bool hasExit{false};
 
+    // Optional richer semantics (#319); empty on a classic level.
+    std::vector<Key> keys;
+    std::vector<LockedDoor> lockedDoors;
+    std::vector<Switch> switches;
+    std::vector<ToggleWall> toggleWalls;
+    std::vector<Hazard> hazards;
+
     // Tunables.
     float playerSpeed{4.0f};
     float enemySpeed{2.0f};
@@ -64,6 +109,10 @@ struct DungeonGame {
     float enemyRadius{0.4f};
     float coinRadius{0.4f};
     float exitRadius{0.6f};
+    float keyRadius{0.4f};
+    float switchRadius{0.5f};
+    float hazardRadius{0.4f};
+    float featureSize{1.0f}; ///< footprint of a spawned locked door / toggle wall.
 
     // Runtime.
     GameStatus status{GameStatus::Playing};
@@ -100,6 +149,35 @@ struct DungeonGame {
             }
         }
 
+        // Key pickup opens every locked door of the same id (#319).
+        for (Key& k : keys) {
+            if (!k.collected && within(playerPosition, k.position, playerRadius + keyRadius)) {
+                k.collected = true;
+                for (LockedDoor& d : lockedDoors) {
+                    if (d.id == k.id) d.open = true;
+                }
+            }
+        }
+
+        // A switch toggles its linked walls once per press (rising edge) (#319).
+        for (Switch& sw : switches) {
+            const bool pressed = within(playerPosition, sw.position, playerRadius + switchRadius);
+            if (pressed && !sw.wasPressed) {
+                for (ToggleWall& w : toggleWalls) {
+                    if (w.id == sw.id) w.solid = !w.solid;
+                }
+            }
+            sw.wasPressed = pressed;
+        }
+
+        // Hazard contact is a loss (#319).
+        for (const Hazard& h : hazards) {
+            if (within(playerPosition, h.position, playerRadius + hazardRadius)) {
+                status = GameStatus::Lost;
+                return;
+            }
+        }
+
         // Enemies chase the player; contact is a loss.
         for (Enemy& e : enemies) {
             const float dx = playerPosition.x - e.position.x;
@@ -130,6 +208,19 @@ struct DungeonGame {
         return false;
     }
 
+    /// True if movement is blocked here: a static wall, a still-locked door, or a solid
+    /// toggle wall (#319). Equals hitsWall() on a classic level (no doors/toggle walls).
+    bool blocked(const ecs::Vec3& pos, float radius) const {
+        if (hitsWall(pos, radius)) return true;
+        for (const LockedDoor& d : lockedDoors) {
+            if (!d.open && circleHitsBox(pos, radius, d.box)) return true;
+        }
+        for (const ToggleWall& w : toggleWalls) {
+            if (w.solid && circleHitsBox(pos, radius, w.box)) return true;
+        }
+        return false;
+    }
+
 private:
     static bool within(const ecs::Vec3& a, const ecs::Vec3& b, float radius) {
         const float dx = a.x - b.x, dz = a.z - b.z;
@@ -155,33 +246,74 @@ private:
     /// Move from @p from by (dx,dz), sliding along whichever axis stays clear.
     ecs::Vec3 slideMove(const ecs::Vec3& from, float dx, float dz, float radius) const {
         const ecs::Vec3 full{from.x + dx, from.y, from.z + dz};
-        if (!hitsWall(full, radius)) return full;
+        if (!blocked(full, radius)) return full;
         const ecs::Vec3 xOnly{from.x + dx, from.y, from.z};
-        if (!hitsWall(xOnly, radius)) return xOnly;
+        if (!blocked(xOnly, radius)) return xOnly;
         const ecs::Vec3 zOnly{from.x, from.y, from.z + dz};
-        if (!hitsWall(zOnly, radius)) return zOnly;
+        if (!blocked(zOnly, radius)) return zOnly;
         return from; // fully blocked this step
     }
 };
 
+namespace detail {
+
+/// Split a spawn type into its base name and optional "@id" link group (#319). A plain
+/// type with no "@" yields id 0, so classic spawns ("player", "coin", ...) are unchanged.
+inline std::string featureBase(const std::string& type, int& id) {
+    const std::size_t at = type.find('@');
+    if (at == std::string::npos) {
+        id = 0;
+        return type;
+    }
+    id = std::atoi(type.c_str() + at + 1);
+    return type.substr(0, at);
+}
+
+/// A square footprint box for a spawned locked door / toggle wall (collision is XZ-only).
+inline world::Box featureBox(const ecs::Vec3& pos, float yaw, float size) {
+    world::Box b;
+    b.center = ecs::Vec3{pos.x, size * 0.5f, pos.z};
+    b.size = ecs::Vec3{size, size, size};
+    b.yaw = yaw;
+    return b;
+}
+
+} // namespace detail
+
 /**
- * @brief Build a playable game from a converted scene: walls become collision
- *        geometry; "player"/"enemy"/"treasure"(or "coin")/"door"(or "exit")
- *        spawns become the player, enemies, coins, and exit.
+ * @brief Build a playable game from a converted scene: walls become collision geometry;
+ *        "player"/"enemy"/"treasure"(or "coin")/"door"(or "exit") spawns become the
+ *        player, enemies, coins, and exit. Optionally (#319) "key"/"lock"/"switch"/
+ *        "toggle"/"hazard" spawns (each with an optional "@id" link) add richer rules; a
+ *        scene with none of these produces exactly the classic game.
  */
 inline DungeonGame loadGame(const SceneDescription& scene) {
     DungeonGame game;
     game.walls = scene.wallBoxes;
     for (const EntitySpawn& s : scene.spawns) {
-        if (s.type == "player") {
+        int id = 0;
+        const std::string base = detail::featureBase(s.type, id);
+        if (base == "player") {
             game.playerPosition = s.position;
-        } else if (s.type == "enemy") {
+        } else if (base == "enemy") {
             game.enemies.push_back(Enemy{s.position});
-        } else if (s.type == "treasure" || s.type == "coin") {
+        } else if (base == "treasure" || base == "coin") {
             game.coins.push_back(Coin{s.position, false});
-        } else if (s.type == "door" || s.type == "exit") {
+        } else if (base == "door" || base == "exit") {
             game.exitPosition = s.position;
             game.hasExit = true;
+        } else if (base == "key") {
+            game.keys.push_back(Key{s.position, id, false});
+        } else if (base == "lock" || base == "lockeddoor") {
+            game.lockedDoors.push_back(
+                LockedDoor{detail::featureBox(s.position, s.yaw, game.featureSize), id, false});
+        } else if (base == "switch") {
+            game.switches.push_back(Switch{s.position, id, false});
+        } else if (base == "toggle" || base == "togglewall") {
+            game.toggleWalls.push_back(
+                ToggleWall{detail::featureBox(s.position, s.yaw, game.featureSize), id, true});
+        } else if (base == "hazard" || base == "spike") {
+            game.hazards.push_back(Hazard{s.position});
         }
     }
     game.totalCoins = static_cast<int>(game.coins.size());
