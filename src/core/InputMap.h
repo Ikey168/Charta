@@ -26,13 +26,13 @@ namespace IKore {
 
 enum class InputDevice { None, Keyboard, Mouse, Gamepad };
 
-struct InputBinding {
+struct InputMapBinding {
     InputDevice device{InputDevice::None};
     int code{-1};
 
     bool bound() const { return device != InputDevice::None; }
-    bool operator==(const InputBinding& o) const { return device == o.device && code == o.code; }
-    bool operator!=(const InputBinding& o) const { return !(*this == o); }
+    bool operator==(const InputMapBinding& o) const { return device == o.device && code == o.code; }
+    bool operator!=(const InputMapBinding& o) const { return !(*this == o); }
 };
 
 inline const char* deviceName(InputDevice device) {
@@ -53,21 +53,21 @@ inline InputDevice deviceFromName(const std::string& name) {
 }
 
 /// Serialize a binding as "device:code", or "none" when unbound.
-inline std::string toString(const InputBinding& binding) {
+inline std::string toString(const InputMapBinding& binding) {
     if (!binding.bound()) return "none";
     return std::string(deviceName(binding.device)) + ":" + std::to_string(binding.code);
 }
 
 /// Parse a "device:code" binding; returns an unbound binding on anything invalid.
-inline InputBinding bindingFromString(const std::string& text) {
+inline InputMapBinding bindingFromString(const std::string& text) {
     const std::size_t colon = text.find(':');
-    if (colon == std::string::npos) return InputBinding{};
+    if (colon == std::string::npos) return InputMapBinding{};
     const InputDevice device = deviceFromName(text.substr(0, colon));
-    if (device == InputDevice::None) return InputBinding{};
+    if (device == InputDevice::None) return InputMapBinding{};
     try {
-        return InputBinding{device, std::stoi(text.substr(colon + 1))};
+        return InputMapBinding{device, std::stoi(text.substr(colon + 1))};
     } catch (...) {
-        return InputBinding{};
+        return InputMapBinding{};
     }
 }
 
@@ -75,7 +75,7 @@ class InputMap {
 public:
     /// Register an action with a default binding. Duplicate names are ignored.
     /// Registration order is preserved for the panel.
-    void addAction(const std::string& name, InputBinding defaultBinding = {}) {
+    void addAction(const std::string& name, InputMapBinding defaultBinding = {}) {
         if (m_index.count(name) != 0) return;
         m_index.emplace(name, m_actions.size());
         m_actions.push_back(Action{name, defaultBinding, defaultBinding});
@@ -84,25 +84,25 @@ public:
     bool hasAction(const std::string& name) const { return m_index.count(name) != 0; }
     std::size_t actionCount() const { return m_actions.size(); }
     const std::string& actionName(std::size_t i) const { return m_actions[i].name; }
-    InputBinding bindingAt(std::size_t i) const { return m_actions[i].binding; }
+    InputMapBinding bindingAt(std::size_t i) const { return m_actions[i].binding; }
 
     /// Current binding for @p action (unbound if the action is unknown).
-    InputBinding binding(const std::string& action) const {
+    InputMapBinding binding(const std::string& action) const {
         const Action* a = find(action);
-        return a ? a->binding : InputBinding{};
+        return a ? a->binding : InputMapBinding{};
     }
 
     /// Rebind @p action; takes effect immediately. No-op if the action is unknown.
-    void rebind(const std::string& action, InputBinding binding) {
+    void rebind(const std::string& action, InputMapBinding binding) {
         if (Action* a = find(action)) a->binding = binding;
     }
 
     void unbind(const std::string& action) {
-        if (Action* a = find(action)) a->binding = InputBinding{};
+        if (Action* a = find(action)) a->binding = InputMapBinding{};
     }
 
     /// The first action bound to @p binding, or "" (never matches unbound).
-    std::string actionFor(InputBinding binding) const {
+    std::string actionFor(InputMapBinding binding) const {
         if (!binding.bound()) return std::string();
         for (const Action& a : m_actions) {
             if (a.binding == binding) return a.name;
@@ -190,8 +190,8 @@ public:
 private:
     struct Action {
         std::string name;
-        InputBinding binding;
-        InputBinding def;
+        InputMapBinding binding;
+        InputMapBinding def;
     };
 
     Action* find(const std::string& name) {

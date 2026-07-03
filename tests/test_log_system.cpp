@@ -44,7 +44,7 @@ static void testLevelsCategoriesAndFormat() {
 
     CHECK(log.records().size() == 3);
     CHECK(log.totalLogged() == 3);
-    CHECK(log.records()[0].level == LogLevel::Info);
+    CHECK(log.records()[0].level == LogViewerLevel::Info);
     CHECK(log.records()[0].category == "engine");
     CHECK(log.records()[0].message == "started");
     CHECK(log.records()[0].index == 0);
@@ -54,13 +54,13 @@ static void testLevelsCategoriesAndFormat() {
     CHECK(log.records()[1].format() == "[WARN] [render] shader cache miss");
 
     // Level names.
-    CHECK(std::string(logLevelName(LogLevel::Error)) == "ERROR");
-    CHECK(std::string(logLevelName(LogLevel::Trace)) == "TRACE");
+    CHECK(std::string(logLevelName(LogViewerLevel::Error)) == "ERROR");
+    CHECK(std::string(logLevelName(LogViewerLevel::Trace)) == "TRACE");
 }
 
 static void testMinLevelThreshold() {
     LogSystem log;
-    log.setMinLevel(LogLevel::Warning);
+    log.setMinLevel(LogViewerLevel::Warning);
     log.trace("x", "t");
     log.debug("x", "d");
     log.info("x", "i");     // all three below Warning -> dropped
@@ -69,8 +69,8 @@ static void testMinLevelThreshold() {
 
     CHECK(log.records().size() == 2);
     CHECK(log.totalLogged() == 2); // dropped messages are not counted
-    CHECK(log.records()[0].level == LogLevel::Warning);
-    CHECK(log.records()[1].level == LogLevel::Error);
+    CHECK(log.records()[0].level == LogViewerLevel::Warning);
+    CHECK(log.records()[1].level == LogViewerLevel::Error);
 }
 
 static void testRingCapacityVsTotal() {
@@ -98,9 +98,9 @@ static void testCountsAndCategories() {
     log.warning("a", "3");
     log.error("c", "4");
 
-    CHECK(log.countAtLeast(LogLevel::Warning) == 2); // warning + error
-    CHECK(log.countAtLeast(LogLevel::Error) == 1);
-    CHECK(log.countAtLeast(LogLevel::Trace) == 4);   // everything
+    CHECK(log.countAtLeast(LogViewerLevel::Warning) == 2); // warning + error
+    CHECK(log.countAtLeast(LogViewerLevel::Error) == 1);
+    CHECK(log.countAtLeast(LogViewerLevel::Trace) == 4);   // everything
 
     const std::vector<std::string> cats = log.categories();
     CHECK(cats.size() == 3);
@@ -115,13 +115,13 @@ static void testFilter() {
     log.error("render", "e1");
 
     // By level only.
-    CHECK(log.filter(LogLevel::Warning).size() == 3);
+    CHECK(log.filter(LogViewerLevel::Warning).size() == 3);
     // By level and category.
-    const std::vector<LogRecord> renderWarnPlus = log.filter(LogLevel::Warning, "render");
+    const std::vector<LogRecord> renderWarnPlus = log.filter(LogViewerLevel::Warning, "render");
     CHECK(renderWarnPlus.size() == 2);
     CHECK(renderWarnPlus[0].message == "w1" && renderWarnPlus[1].message == "e1");
     // Category with a low threshold picks up everything in that category.
-    CHECK(log.filter(LogLevel::Trace, "render").size() == 3);
+    CHECK(log.filter(LogViewerLevel::Trace, "render").size() == 3);
 }
 
 static void testSinksFeedConsole() {
@@ -130,7 +130,7 @@ static void testSinksFeedConsole() {
     log.addSink([&consoleLines](const LogRecord& r) { consoleLines.push_back(r.format()); });
 
     log.info("engine", "hello");
-    log.setMinLevel(LogLevel::Warning);
+    log.setMinLevel(LogViewerLevel::Warning);
     log.info("engine", "dropped"); // below threshold: sink must NOT fire
     log.error("engine", "boom");
 

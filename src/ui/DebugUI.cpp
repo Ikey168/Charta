@@ -172,25 +172,25 @@ static bool isBindableGamepad(ImGuiKey key) {
 
 // Poll for the next pressed input this frame, to capture a rebind. Mouse buttons
 // and gamepad buttons are checked explicitly; everything else is treated as a key.
-static InputBinding captureInput() {
+static InputMapBinding captureInput() {
     for (int b = 0; b < 5; ++b) {
-        if (ImGui::IsMouseClicked(b)) return InputBinding{InputDevice::Mouse, b};
+        if (ImGui::IsMouseClicked(b)) return InputMapBinding{InputDevice::Mouse, b};
     }
     for (ImGuiKey g : kBindableGamepad) {
-        if (ImGui::IsKeyPressed(g, false)) return InputBinding{InputDevice::Gamepad, static_cast<int>(g)};
+        if (ImGui::IsKeyPressed(g, false)) return InputMapBinding{InputDevice::Gamepad, static_cast<int>(g)};
     }
     for (int k = ImGuiKey_NamedKey_BEGIN; k < ImGuiKey_NamedKey_END; ++k) {
         const ImGuiKey key = static_cast<ImGuiKey>(k);
         if (!ImGui::IsKeyPressed(key, false)) continue;
         if (key >= ImGuiKey_MouseLeft && key <= ImGuiKey_MouseWheelY) continue; // handled above
         if (isBindableGamepad(key)) continue;                                   // handled above
-        return InputBinding{InputDevice::Keyboard, static_cast<int>(key)};
+        return InputMapBinding{InputDevice::Keyboard, static_cast<int>(key)};
     }
-    return InputBinding{};
+    return InputMapBinding{};
 }
 
 // Human-readable label for a binding, for the panel.
-static std::string bindingLabel(const InputBinding& binding) {
+static std::string bindingLabel(const InputMapBinding& binding) {
     if (!binding.bound()) return "(unbound)";
     if (binding.device == InputDevice::Mouse) {
         switch (binding.code) {
@@ -207,7 +207,7 @@ static std::string bindingLabel(const InputBinding& binding) {
 
 // Whether the input a binding refers to is currently held (shows rebinds taking
 // effect immediately).
-static bool bindingActive(const InputBinding& binding) {
+static bool bindingActive(const InputMapBinding& binding) {
     if (!binding.bound()) return false;
     if (binding.device == InputDevice::Mouse) return ImGui::IsMouseDown(binding.code);
     return ImGui::IsKeyDown(static_cast<ImGuiKey>(binding.code));
@@ -783,7 +783,7 @@ void DebugUI::renderInputBindings() {
         if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
             m_rebinding = -1;
         } else {
-            const InputBinding captured = captureInput();
+            const InputMapBinding captured = captureInput();
             if (captured.bound()) {
                 m_inputMap.rebind(m_inputMap.actionName(static_cast<std::size_t>(m_rebinding)), captured);
                 m_rebinding = -1;
@@ -793,7 +793,7 @@ void DebugUI::renderInputBindings() {
 
     for (int i = 0; i < static_cast<int>(m_inputMap.actionCount()); ++i) {
         const std::string& name = m_inputMap.actionName(static_cast<std::size_t>(i));
-        const InputBinding binding = m_inputMap.bindingAt(static_cast<std::size_t>(i));
+        const InputMapBinding binding = m_inputMap.bindingAt(static_cast<std::size_t>(i));
         const bool conflict = m_inputMap.hasConflict(name);
 
         ImGui::PushID(i);
@@ -931,13 +931,13 @@ void DebugUI::renderBenchmark() {
     ImGui::End();
 }
 
-static ImVec4 colorForLogLevel(LogLevel level) {
+static ImVec4 colorForLogLevel(LogViewerLevel level) {
     switch (level) {
-        case LogLevel::Trace: return ImVec4(0.55f, 0.55f, 0.55f, 1.0f);
-        case LogLevel::Debug: return ImVec4(0.65f, 0.75f, 0.95f, 1.0f);
-        case LogLevel::Info: return ImVec4(0.85f, 0.85f, 0.85f, 1.0f);
-        case LogLevel::Warning: return ImVec4(0.95f, 0.80f, 0.35f, 1.0f);
-        case LogLevel::Error: return ImVec4(0.95f, 0.40f, 0.40f, 1.0f);
+        case LogViewerLevel::Trace: return ImVec4(0.55f, 0.55f, 0.55f, 1.0f);
+        case LogViewerLevel::Debug: return ImVec4(0.65f, 0.75f, 0.95f, 1.0f);
+        case LogViewerLevel::Info: return ImVec4(0.85f, 0.85f, 0.85f, 1.0f);
+        case LogViewerLevel::Warning: return ImVec4(0.95f, 0.80f, 0.35f, 1.0f);
+        case LogViewerLevel::Error: return ImVec4(0.95f, 0.40f, 0.40f, 1.0f);
     }
     return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
@@ -974,10 +974,10 @@ void DebugUI::renderLog() {
 
     ImGui::Text("Total: %llu    Warnings+: %zu    Errors: %zu",
                 static_cast<unsigned long long>(m_log.totalLogged()),
-                m_log.countAtLeast(LogLevel::Warning), m_log.countAtLeast(LogLevel::Error));
+                m_log.countAtLeast(LogViewerLevel::Warning), m_log.countAtLeast(LogViewerLevel::Error));
     ImGui::Separator();
 
-    const LogLevel minLevel = static_cast<LogLevel>(m_logFilterLevel);
+    const LogViewerLevel minLevel = static_cast<LogViewerLevel>(m_logFilterLevel);
     const std::string catFilter =
         m_logCategoryIndex > 0 ? cats[static_cast<std::size_t>(m_logCategoryIndex - 1)] : std::string();
 
