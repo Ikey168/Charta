@@ -1,0 +1,56 @@
+name: GL/Audio Tests
+
+# Runs the GL / audio test targets under a virtual display (issue #294). The unit-test
+# gate (tests.yml, #286) runs the headless, deterministic tests; the tests that link the
+# engine's GL / GLFW / OpenAL / Bullet stack were excluded because they need a display or
+# an audio device. This closes that gap by running them under Xvfb with a software GL
+# (mesa/llvmpipe) and a null OpenAL device, gating PRs on them via the `gl` CTest label.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  gl-tests:
+    name: GL/audio tests (Xvfb)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev \
+          libxext-dev \
+          libx11-dev \
+          mesa-common-dev \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libgl1-mesa-dri \
+          libopenal-dev \
+          xvfb \
+          pkg-config
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build GL/audio test suite
+      run: cmake --build build --target gl_tests -j$(nproc)
+
+    - name: Run GL/audio tests under Xvfb
+      working-directory: build
+      env:
+        # Force the software rasterizer (llvmpipe) and a null audio device so the job is
+        # reliable on a runner with no GPU or sound card.
+        LIBGL_ALWAYS_SOFTWARE: "1"
+        GALLIUM_DRIVER: llvmpipe
+        ALSOFT_DRIVERS: "null"
+      run: xvfb-run -a ctest -L gl --output-on-failure --timeout 180
