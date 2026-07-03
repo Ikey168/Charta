@@ -553,6 +553,18 @@ add_executable(perf_gate
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/perf_gate.cpp
 )
 
+# Headless offscreen render + golden-image regression harness (#290). Uses an EGL
+# surfaceless context + system GL, so it is Linux/EGL-only: guard the target so it does
+# not break configuration on platforms without EGL. The render-golden CI job builds it
+# directly with g++, so this target is a local convenience.
+find_library(EGL_LIBRARY NAMES EGL)
+if(EGL_LIBRARY AND TARGET OpenGL::GL)
+    add_executable(render_golden
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/render_golden.cpp
+    )
+    target_link_libraries(render_golden PRIVATE ${EGL_LIBRARY} OpenGL::GL)
+endif()
+
 # Desync detection + diagnostics + input-log replay (Milestone 14 / #161) - header-only.
 add_executable(test_desync
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync.cpp
