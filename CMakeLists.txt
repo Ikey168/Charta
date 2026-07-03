@@ -1038,12 +1038,7 @@ set(GL_TESTS
     test_mesh_component_minimal
     test_network_component
     test_openal_3d_audio
-    # Quarantined (issue #294): test_particle_component segfaults headlessly. Adding a
-    # ParticleComponent runs ParticleSystem::initializeBuffers, which calls live GL
-    # functions (glGenBuffers, ...) on attach; the test never creates a GL context, so
-    # those glad function pointers are null and it crashes. Re-enable once the test creates
-    # a GL context (a hidden GLFW window + gladLoad) before attaching the component.
-    # test_particle_component
+    test_particle_component
     test_physics_component
     test_physics_simple
     test_scene_graph
@@ -1064,4 +1059,10 @@ endforeach()
 # Aggregate target so CI can build just the GL/audio tests before running `ctest -L gl`.
 if(_present_gl_tests)
     add_custom_target(gl_tests DEPENDS ${_present_gl_tests})
+endif()
+
+# test_particle_component initializes the real particle system, which loads its shaders from
+# src/shaders/ by relative path, so it must run from the repository root (issue #294).
+if(TARGET test_particle_component)
+    set_tests_properties(test_particle_component PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
