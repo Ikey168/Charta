@@ -358,7 +358,10 @@ add_executable(test_openal_3d_audio
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/EntityTypes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Transform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/TransformableEntities.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/EntityDebugSystem.cpp
+    # EntityDebugSystem.cpp is intentionally omitted (issue #294): it is a graphics
+    # (glad/GL) source that this audio-only test never references, and compiling it here
+    # broke the build with "glad/glad.h: No such file or directory" since this target does
+    # not link glad. Excluding it keeps the target true to its "no graphics deps" comment.
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Component.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/components/AudioComponent.cpp
     ${AUDIO_SOURCES}
@@ -999,4 +1002,58 @@ endforeach()
 # the GL/audio-linked tests) before running `ctest -L headless`.
 if(_present_headless_tests)
     add_custom_target(headless_tests DEPENDS ${_present_headless_tests})
+endif()
+
+# --- GL / audio tests (issue #294) -------------------------------------------------
+#
+# These tests link the engine's GL / GLFW / OpenAL / Bullet stack and were excluded from
+# the headless gate because they need a display or an audio device. They are registered
+# here under the `gl` label so CI can run them under a virtual display (Xvfb) + a software
+# GL (mesa/llvmpipe) + a null OpenAL device: `ctest -L gl`.
+#
+# Triaged to run headlessly under that setup. Any test that genuinely cannot (documented
+# below) is quarantined by leaving it out of this list rather than being silently dropped.
+set(GL_TESTS
+    test_ai_brain
+    test_ai_component
+    test_animation_component
+    test_audio_compressed
+    test_event_system
+    test_event_system_simple
+    test_material_component
+    test_mesh_component
+    test_mesh_component_geometry
+    test_mesh_component_minimal
+    test_network_component
+    test_openal_3d_audio
+    # Quarantined (issue #294): test_particle_component segfaults headlessly. Adding a
+    # ParticleComponent runs ParticleSystem::initializeBuffers, which calls live GL
+    # functions (glGenBuffers, ...) on attach; the test never creates a GL context, so
+    # those glad function pointers are null and it crashes. Re-enable once the test creates
+    # a GL context (a hidden GLFW window + gladLoad) before attaching the component.
+    # test_particle_component
+    test_physics_component
+    test_physics_simple
+    test_scene_graph
+    # Quarantined (issue #294): test_scripting does not build. src/scripting/ScriptSystem.cpp
+    # fails to compile with an ambiguous 'Entity' reference (the legacy IKore::Entity vs the
+    # archetype IKore::ecs::Entity), a pre-existing scripting/ECS namespace collision that is
+    # out of scope for this CI-gating change. Re-enable once ScriptSystem.cpp is fixed.
+    # test_scripting
+)
+
+set(_present_gl_tests "")
+foreach(_t ${GL_TESTS})
+    if(TARGET ${_t})
+        add_test(NAME ${_t} COMMAND ${_t})
+        set_tests_properties(${_t} PROPERTIES LABELS gl)
+        list(APPEND _present_gl_tests ${_t})
+    else()
+        message(WARNING "GL_TESTS lists '${_t}' but no such target exists")
+    endif()
+endforeach()
+
+# Aggregate target so CI can build just the GL/audio tests before running `ctest -L gl`.
+if(_present_gl_tests)
+    add_custom_target(gl_tests DEPENDS ${_present_gl_tests})
 endif()
