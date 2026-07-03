@@ -196,18 +196,92 @@ inline std::vector<float> estimateBackgroundColor(const Image& img, int border =
     return bg;
 }
 
-/// Foreground (paper) mask: pixels whose color is far from the background by more
-/// than @p threshold (L1 over channels). Works for colored or dark paper, not just
-/// bright paper, as long as it contrasts the surface it sits on.
+/**
+ * @brief Per-corner background color estimate, robust to a lit gradient (issue #274).
+ *
+ * A single border mean is wrong when the table is unevenly lit: one side reads
+ * bright, the other dark, so the mean matches neither and the dark side of the table
+ * is mistaken for paper. Instead sample the mean color of each of the four corner
+ * blocks; backgroundColorAt() bilinearly interpolates them, so the estimate tracks a
+ * gradient across the frame. On a uniform background all four corners are equal and
+ * the estimate is the same constant as the old border mean.
+ */
+struct BackgroundField {
+    std::vector<float> tl, tr, bl, br; ///< per-channel corner means.
+    int channels{0};
+};
+
+inline BackgroundField estimateBackgroundField(const Image& img, int border = 2) {
+    BackgroundField f;
+    f.channels = std::max(1, img.channels);
+    f.tl.assign(static_cast<std::size_t>(f.channels), 0.0f);
+    f.tr = f.bl = f.br = f.tl;
+    if (img.width <= 0 || img.height <= 0 || img.channels <= 0) return f;
+    if (border < 1) border = 1;
+
+    // Average the border ring - which excludes any clutter sitting on the paper's
+    // interior, like the old single mean did - but bucket each ring pixel to its
+    // nearest corner so a lit gradient across the table is tracked per corner.
+    std::vector<float> sum[4]; // TL, TR, BL, BR
+    long cnt[4] = {0, 0, 0, 0};
+    for (int i = 0; i < 4; ++i) sum[i].assign(static_cast<std::size_t>(img.channels), 0.0f);
+    std::vector<float> ringAll(static_cast<std::size_t>(img.channels), 0.0f);
+    long ringCnt = 0;
+    const int hx = img.width / 2, hy = img.height / 2;
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            const bool ring = x < border || y < border || x >= img.width - border || y >= img.height - border;
+            if (!ring) continue;
+            const int q = (x < hx ? 0 : 1) + (y < hy ? 0 : 2); // 0 TL,1 TR,2 BL,3 BR
+            for (int c = 0; c < img.channels; ++c) {
+                const float v = static_cast<float>(img.at(x, y, c));
+                sum[q][static_cast<std::size_t>(c)] += v;
+                ringAll[static_cast<std::size_t>(c)] += v;
+            }
+            ++cnt[q];
+            ++ringCnt;
+        }
+    }
+    if (ringCnt > 0) for (float& v : ringAll) v /= static_cast<float>(ringCnt);
+    auto finalize = [&](int q, std::vector<float>& out) {
+        if (cnt[q] > 0) {
+            for (int c = 0; c < img.channels; ++c)
+                out[static_cast<std::size_t>(c)] = sum[q][static_cast<std::size_t>(c)] / static_cast<float>(cnt[q]);
+        } else {
+            out = ringAll; // a corner with no ring pixels falls back to the global mean
+        }
+    };
+    finalize(0, f.tl);
+    finalize(1, f.tr);
+    finalize(2, f.bl);
+    finalize(3, f.br);
+    return f;
+}
+
+/// Bilinearly interpolate the corner background color for channel @p c at (x, y).
+inline float backgroundColorAt(const BackgroundField& f, int x, int y, int W, int H, int c) {
+    const float u = W > 1 ? static_cast<float>(x) / static_cast<float>(W - 1) : 0.0f;
+    const float v = H > 1 ? static_cast<float>(y) / static_cast<float>(H - 1) : 0.0f;
+    const std::size_t ch = static_cast<std::size_t>(c);
+    const float top = f.tl[ch] * (1.0f - u) + f.tr[ch] * u;
+    const float bot = f.bl[ch] * (1.0f - u) + f.br[ch] * u;
+    return top * (1.0f - v) + bot * v;
+}
+
+/// Foreground (paper) mask: pixels whose color is far from the local background by
+/// more than @p threshold (L1 over channels). The background is the per-corner
+/// bilinear estimate (issue #274), so it works for colored or dark paper AND survives
+/// a lit gradient across the table, not just a uniform surface.
 inline Mask foregroundMask(const Image& img, float threshold = 60.0f, int border = 2) {
     Mask m(img.width, img.height);
     if (img.width <= 0 || img.height <= 0 || img.channels <= 0) return m;
-    const std::vector<float> bg = estimateBackgroundColor(img, border);
+    const BackgroundField bg = estimateBackgroundField(img, border);
     for (int y = 0; y < img.height; ++y) {
         for (int x = 0; x < img.width; ++x) {
             float dist = 0.0f;
             for (int c = 0; c < img.channels; ++c) {
-                dist += std::fabs(static_cast<float>(img.at(x, y, c)) - bg[static_cast<std::size_t>(c)]);
+                dist += std::fabs(static_cast<float>(img.at(x, y, c)) -
+                                  backgroundColorAt(bg, x, y, img.width, img.height, c));
             }
             if (dist > threshold) m.set(x, y, 1);
         }
@@ -342,6 +416,63 @@ inline Polyline mergeCollinear(const Polyline& poly, float angleTolDeg = 12.0f) 
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// Shadow-edge suppression (edge-profile discrimination)
+// ---------------------------------------------------------------------------
+namespace detail {
+
+/// Dilate a mask by a box radius @p r (out-of-bounds treated as 0).
+inline Mask dilateMask(const Mask& m, int r) {
+    if (r <= 0) return m;
+    Mask out(m.width, m.height);
+    for (int y = 0; y < m.height; ++y) {
+        for (int x = 0; x < m.width; ++x) {
+            bool on = false;
+            for (int dy = -r; dy <= r && !on; ++dy) {
+                for (int dx = -r; dx <= r; ++dx) {
+                    if (m.get(x + dx, y + dy)) { on = true; break; }
+                }
+            }
+            if (on) out.set(x, y, 1);
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief Mask of "stroke-like" pixels: luminance valleys, darker than the paper on
+ *        BOTH sides along x or along y (issue #274).
+ *
+ * A pen stroke is a thin dark line flanked by lighter paper on both sides (a local
+ * minimum). A hard cast-shadow EDGE is a monotonic step - bright on one side, dark on
+ * the other - so it is never a two-sided valley and is excluded. The flanks are probed
+ * at @p probe pixels (larger than the stroke half-width, so they land on paper, not on
+ * the stroke itself). Run on the original luminance, where the shadow edge is a clean
+ * step; on the flattened image both far sides read white, which would hide the step.
+ */
+inline Mask strokeValleyMask(const Image& img, int probe = 4, float minContrast = 18.0f) {
+    Mask m(img.width, img.height);
+    if (img.width <= 0 || img.height <= 0) return m;
+    auto lum = [&](int x, int y) {
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x > img.width - 1) x = img.width - 1;
+        if (y > img.height - 1) y = img.height - 1;
+        return img.luminance(x, y);
+    };
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            const float c = lum(x, y);
+            const bool hValley = (lum(x - probe, y) - c > minContrast) && (lum(x + probe, y) - c > minContrast);
+            const bool vValley = (lum(x, y - probe) - c > minContrast) && (lum(x, y + probe) - c > minContrast);
+            if (hValley || vValley) m.set(x, y, 1);
+        }
+    }
+    return m;
+}
+
+} // namespace detail
+
 /// Knobs for the robust pipeline; @c vec reuses the Phase 1 vectorization options.
 struct RobustOptions {
     int illumRadius{15};
@@ -349,6 +480,12 @@ struct RobustOptions {
     float maxSkewDeg{12.0f};
     float collinearTolDeg{18.0f};
     float closeLoopFactor{1.5f}; ///< close a polyline if its ends are within this * grid.
+    // Shadow-edge suppression (issue #274): keep only ink that is a luminance valley
+    // in the original image, so a hard shadow edge (a monotonic step) is not vectorized
+    // as a wall. Disable to get the pre-#274 behavior.
+    bool suppressShadowEdges{true};
+    int shadowProbe{4};            ///< flank distance for the valley test (> stroke half-width).
+    float shadowMinContrast{18.0f}; ///< min luminance drop from paper to ink on both sides.
     VectorizeOptions vec{};
 };
 
@@ -360,15 +497,35 @@ struct RobustOptions {
  */
 inline std::vector<Polyline> vectorizeWallsRobust(const Image& img, const RobustOptions& opt = {}) {
     Image work = flattenIllumination(img, opt.illumRadius);
+    Image orig = img; // original luminance for the edge-profile test (kept aligned with work)
     if (opt.deskew) {
         Mask pre = binarizeAdaptive(work, opt.vec.adaptiveRadius, opt.vec.threshC);
         denoise(pre, opt.vec.minComponentArea);
         const float skew = estimateSkewAngle(pre, opt.maxSkewDeg);
-        if (std::fabs(skew) > 0.25f) work = deskewImage(work, skew);
+        if (std::fabs(skew) > 0.25f) {
+            work = deskewImage(work, skew);
+            orig = deskewImage(orig, skew);
+        }
     }
 
     Mask bin = binarizeAdaptive(work, opt.vec.adaptiveRadius, opt.vec.threshC);
     denoise(bin, opt.vec.minComponentArea);
+
+    // Shadow-edge suppression (issue #274): a hard cast-shadow edge survives illumination
+    // flattening as a dark band, which would vectorize into a false wall. Keep only ink
+    // that is a luminance valley in the original image (dark with lighter paper on both
+    // sides); a shadow edge is a monotonic step, so it is dropped while pen strokes stay.
+    if (opt.suppressShadowEdges) {
+        Mask keep = detail::strokeValleyMask(orig, opt.shadowProbe, opt.shadowMinContrast);
+        keep = detail::dilateMask(keep, 1); // forgive 1px misalignment vs the binarized ink
+        for (int y = 0; y < bin.height; ++y) {
+            for (int x = 0; x < bin.width; ++x) {
+                if (bin.get(x, y) && !keep.get(x, y)) bin.set(x, y, 0);
+            }
+        }
+        denoise(bin, opt.vec.minComponentArea);
+    }
+
     const Mask skeleton = thinZhangSuen(bin);
     const std::vector<Polyline> traced = tracePolylines(skeleton);
 
