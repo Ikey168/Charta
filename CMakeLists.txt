@@ -613,6 +613,11 @@ add_executable(test_dungeon_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_game.cpp
 )
 
+# Keys, locked doors, switches, and hazards over the dungeon loop (#319) - header-only.
+add_executable(test_dungeon_features
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_features.cpp
+)
+
 # GeoJSON/OSM map data -> playable DungeonGame world (#313) - header-only.
 add_executable(test_city_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
@@ -999,6 +1004,7 @@ set(HEADLESS_TESTS
     test_doodle_library
     test_doodle_rollback
     test_doodle_scene
+    test_dungeon_features
     test_dungeon_game
     test_ecs_benchmark
     test_ecs_query
