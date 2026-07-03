@@ -3,6 +3,9 @@
 #include <chrono>
 #include <thread>
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
 #include "src/core/Entity.h"
 #include "src/core/components/ParticleComponent.h"
 #include "src/core/components/TransformComponent.h"
@@ -11,7 +14,33 @@ using namespace IKore;
 
 int main() {
     std::cout << "==== Particle Component Test ====" << std::endl;
-    
+
+    // Attaching a ParticleComponent issues live GL calls (ParticleSystem::initializeBuffers
+    // creates the VBO/VAO), so the test needs a current GL context. Create a hidden offscreen
+    // window; in CI this runs on Xvfb + a software GL. If no context can be created (e.g. no
+    // display at all), skip rather than fail so the job stays reliable.
+    if (!glfwInit()) {
+        std::cout << "GLFW init failed (no display?); skipping particle GL test" << std::endl;
+        return 0;
+    }
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* glContext = glfwCreateWindow(64, 64, "particle-test", nullptr, nullptr);
+    if (!glContext) {
+        std::cout << "GL context creation failed (no display?); skipping particle GL test" << std::endl;
+        glfwTerminate();
+        return 0;
+    }
+    glfwMakeContextCurrent(glContext);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to load GL functions; skipping particle GL test" << std::endl;
+        glfwDestroyWindow(glContext);
+        glfwTerminate();
+        return 0;
+    }
+
     // Create an entity
     auto entity = std::make_shared<Entity>();
     
@@ -88,5 +117,13 @@ int main() {
     std::cout << "Removed particle component" << std::endl;
     
     std::cout << "Particle Component test completed successfully" << std::endl;
+
+    // Release everything that owns GL resources (ParticleSystem frees its VBO/VAO in its
+    // destructor) while the context is still current, then tear the context down. Doing this
+    // in the wrong order frees GL objects with no current context and crashes.
+    particleComponent.reset();
+    entity.reset();
+    glfwDestroyWindow(glContext);
+    glfwTerminate();
     return 0;
 }
