@@ -618,6 +618,11 @@ add_executable(test_dungeon_features
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_features.cpp
 )
 
+# Selectable enemy behaviors: patrol / flee / ranged, default chase (#320) - header-only.
+add_executable(test_enemy_behaviors
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_enemy_behaviors.cpp
+)
+
 # GeoJSON/OSM map data -> playable DungeonGame world (#313) - header-only.
 add_executable(test_city_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
@@ -1009,6 +1014,7 @@ set(HEADLESS_TESTS
     test_ecs_benchmark
     test_ecs_query
     test_ecs_systems
+    test_enemy_behaviors
     test_entity_inspector
     test_file_watcher
     test_frame_graph
