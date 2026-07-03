@@ -1,0 +1,60 @@
+name: Render Golden
+
+# Headless offscreen render + golden-image regression harness (issue #290). Every rendering
+# PR carried the caveat that GPU output could not be verified headlessly, so the actual
+# pixels stayed ungated. render_golden (tools/render_golden.cpp) creates a truly headless GL
+# context (EGL surfaceless, no X server), renders a fixed deterministic scene to an FBO,
+# reads it back, and compares it to the committed golden (tools/golden/scene.ppm) with a
+# mean-absolute-error tolerance. It runs as its own job, independent of the headless-logic
+# suite.
+#
+# The scene is a full-screen fragment-shader raymarch (lit sphere, hard cast shadow,
+# procedural-environment reflection): every pixel comes from one fragment program, so there
+# is no rasterization variance and the output is deterministic run to run (the tool also
+# asserts this internally by rendering twice). The MAE tolerance absorbs minor driver
+# differences while still failing on a real shader regression.
+#
+# To regenerate the golden intentionally (after a legitimate render change):
+#   g++ -std=c++17 -O2 tools/render_golden.cpp -lEGL -lGL -o render_golden
+#   LIBGL_ALWAYS_SOFTWARE=1 ./render_golden --emit tools/golden/scene.ppm
+# and commit tools/golden/scene.ppm.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  render-golden:
+    name: Golden-image regression
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libegl1-mesa-dev \
+          libgl1-mesa-dev \
+          libgl1-mesa-dri \
+          mesa-common-dev \
+          libglu1-mesa-dev
+
+    - name: Build render_golden
+      run: g++ -std=c++17 -O2 tools/render_golden.cpp -lEGL -lGL -o render_golden
+
+    - name: Check render against golden
+      env:
+        # Force the software rasterizer (llvmpipe) so the job is reliable and deterministic
+        # on a runner with no GPU.
+        LIBGL_ALWAYS_SOFTWARE: "1"
+        GALLIUM_DRIVER: llvmpipe
+      # A generous mean-absolute-error tolerance: it absorbs minor cross-driver float
+      # differences (locally the render is a byte-exact match, MAE 0) while still failing on
+      # a real regression (a broken shader lands far above this, e.g. MAE ~40 for a wrong
+      # image).
+      run: ./render_golden --check tools/golden/scene.ppm --mae 10
