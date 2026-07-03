@@ -739,6 +739,12 @@ add_executable(test_ghost_race
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ghost_race.cpp
 )
 
+# Shareable spectator replays: content-verified run/match codec + deterministic
+# per-tick playback (single run and versus) (#317) - header-only.
+add_executable(test_replay
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_replay.cpp
+)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
@@ -1021,6 +1027,7 @@ set(HEADLESS_TESTS
     test_quest_gen
     test_rectify
     test_render_pass_graph
+    test_replay
     test_rollback
     test_scene_author
     test_scene_hierarchy
