@@ -59,6 +59,8 @@ uniform samplerCube prefilterMap;
 uniform sampler2D brdfLUT;
 uniform bool useIBL;
 uniform float maxReflectionLod;
+// Exposure/intensity scale for the IBL ambient (issue #288); 1.0 leaves #270 unchanged.
+uniform float iblIntensity;
 
 const float PI = 3.14159265359;
 
@@ -178,7 +180,7 @@ void main() {
         vec2 envBRDF = texture(brdfLUT, vec2(NdotV, roughness)).rg;
         vec3 specularIBL = prefiltered * (F * envBRDF.x + envBRDF.y);
 
-        ambient = (kD * diffuseIBL + specularIBL) * ao;
+        ambient = (kD * diffuseIBL + specularIBL) * ao * iblIntensity;
     } else {
         ambient = vec3(0.03) * albedo * ao;
     }

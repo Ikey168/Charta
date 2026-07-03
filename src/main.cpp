@@ -67,11 +67,14 @@ IKore::PostProcessor* g_postProcessor = nullptr;
 // Global skybox pointer for keyboard callbacks
 IKore::Skybox* g_skybox = nullptr;
 
-// Image-based lighting for the PBR ambient term (issue #270). Generated at load from
-// the skybox cubemap; g_iblEnabled (toggle B) gates the IBL ambient so the constant-
-// ambient fallback stays available and is used whenever no environment is present.
+// Image-based lighting for the PBR ambient term (issue #270). Generated at load from the
+// skybox cubemap and on by default whenever a valid environment exists (issue #288);
+// g_iblEnabled (toggle B) forces the constant-ambient fallback, which is also used
+// automatically whenever no environment is present. g_iblIntensity scales the environment
+// ambient (an exposure control, keys [ and ]).
 IKore::IblEnvironment* g_ibl = nullptr;
 bool g_iblEnabled = true;
+float g_iblIntensity = 1.0f;
 
 // Global debug UI pointer for keyboard callbacks (F1 toggles the overlay)
 IKore::DebugUI* g_debugUI = nullptr;
@@ -111,6 +114,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+// (Re)generate the IBL environment from the current skybox cubemap (issue #288).
+void regenerateIblFromSkybox();
 
 int main() {
     // Initialize logging system
@@ -226,15 +231,15 @@ int main() {
     g_skybox = &skybox; // Set global pointer for keyboard callbacks
 
     // Generate image-based lighting from the skybox cubemap (issue #270): irradiance,
-    // prefiltered specular, and the BRDF LUT for the PBR ambient term. Opt-in and only
-    // used when valid; PBR materials fall back to constant ambient otherwise.
+    // prefiltered specular, and the BRDF LUT for the PBR ambient term. On by default when a
+    // valid environment exists (issue #288); PBR materials fall back to constant ambient
+    // when generation fails or no skybox is present. g_ibl is always published so the
+    // environment can be regenerated when the skybox changes; iblOn additionally checks
+    // isValid().
     IKore::IblEnvironment iblEnv;
+    g_ibl = &iblEnv;
     if (skyboxLoaded && skybox.isLoaded()) {
-        if (iblEnv.generate(skybox.getTextureID())) {
-            g_ibl = &iblEnv;
-        } else {
-            LOG_WARNING("IBL generation failed - PBR uses constant ambient");
-        }
+        regenerateIblFromSkybox();
     }
 
     // === Particle System Initialization ===
@@ -989,6 +994,7 @@ int main() {
                 pbrShaderPtr->setInt("brdfLUT", 7);
                 const bool iblOn = g_ibl && g_ibl->isValid() && g_iblEnabled;
                 pbrShaderPtr->setInt("useIBL", iblOn ? 1 : 0);
+                pbrShaderPtr->setFloat("iblIntensity", g_iblIntensity);
                 if (iblOn) {
                     glActiveTexture(GL_TEXTURE5);
                     glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl->irradianceMap());
@@ -1219,6 +1225,19 @@ void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height) {
     }
 }
 
+// (Re)generate the IBL environment from the current skybox cubemap (issue #288). Called at
+// load and whenever the skybox changes so the PBR ambient stays in sync with the
+// environment. A no-op when there is no loaded skybox, in which case PBR keeps the
+// constant-ambient fallback (g_ibl stays not-valid).
+void regenerateIblFromSkybox() {
+    if (!g_ibl || !g_skybox || !g_skybox->isLoaded()) return;
+    if (g_ibl->generate(g_skybox->getTextureID())) {
+        LOG_INFO("IBL environment (re)generated from skybox");
+    } else {
+        LOG_WARNING("IBL generation failed - PBR uses constant ambient");
+    }
+}
+
 // Keyboard callback for toggling post-processing effects
 void key_callback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/) {
     if (action == GLFW_PRESS) {
@@ -1272,6 +1291,8 @@ void key_callback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action,
             // Toggle Skybox
             g_skybox->setEnabled(!g_skybox->isEnabled());
             LOG_INFO("Skybox " + std::string(g_skybox->isEnabled() ? "enabled" : "disabled"));
+            // The environment changed: refresh IBL from the current skybox cubemap (issue #288).
+            if (g_skybox->isEnabled()) regenerateIblFromSkybox();
         }
         else if (key == GLFW_KEY_5 && g_skybox) {
             // Decrease skybox intensity
@@ -1348,6 +1369,16 @@ void key_callback(GLFWwindow* /*window*/, int key, int /*scancode*/, int action,
             // Toggle image-based lighting for the PBR ambient term (issue #270).
             g_iblEnabled = !g_iblEnabled;
             LOG_INFO("Image-based lighting " + std::string(g_iblEnabled ? "enabled" : "disabled"));
+        }
+        else if (key == GLFW_KEY_LEFT_BRACKET) {
+            // Decrease the IBL ambient intensity/exposure (issue #288).
+            g_iblIntensity = std::max(0.0f, g_iblIntensity - 0.1f);
+            LOG_INFO("IBL intensity: " + std::to_string(g_iblIntensity));
+        }
+        else if (key == GLFW_KEY_RIGHT_BRACKET) {
+            // Increase the IBL ambient intensity/exposure (issue #288).
+            g_iblIntensity = std::min(4.0f, g_iblIntensity + 0.1f);
+            LOG_INFO("IBL intensity: " + std::to_string(g_iblIntensity));
         }
         else if (key == GLFW_KEY_C) {
             // Toggle frustum culling
