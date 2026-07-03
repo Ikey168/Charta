@@ -1,0 +1,56 @@
+name: Sanitizers
+
+# Runs the headless unit-test suite under AddressSanitizer + UndefinedBehaviorSanitizer
+# as a separate PR gate (issue #296). The tests are developed under ASan/UBSan locally
+# (several real bugs were caught that way), but the plain unit-test gate (tests.yml, #286)
+# builds them without sanitizers, so a memory/UB regression could slip through. This
+# builds the same `headless_tests` target with -fsanitize=address,undefined and
+# -fno-sanitize-recover=all (so any error aborts) and runs it via CTest. It is kept
+# separate from the plain gate so a sanitizer failure is clearly attributable.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  sanitize-headless:
+    name: Headless tests (ASan/UBSan)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev \
+          libxext-dev \
+          libx11-dev \
+          mesa-common-dev \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libopenal-dev \
+          pkg-config
+
+    - name: Configure (ASan/UBSan)
+      run: >
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g"
+        -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+    - name: Build headless test suite
+      run: cmake --build build --target headless_tests -j$(nproc)
+
+    - name: Run headless tests under sanitizers
+      working-directory: build
+      env:
+        ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      run: ctest -L headless --output-on-failure
