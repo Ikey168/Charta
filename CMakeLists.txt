@@ -452,6 +452,17 @@ add_executable(test_animation_component
 )
 target_link_libraries(test_animation_component PRIVATE glad glfw glm::glm assimp)
 
+# Animation blending + crossfade transitions (#321). Pure CPU palette-blend math (no GL
+# context needed), but it links AnimationComponent.cpp + assimp, so it runs under the
+# gl-labelled job alongside test_animation_component.
+add_executable(test_animation_blend
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_animation_blend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/components/AnimationComponent.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Logger.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Component.cpp
+)
+target_link_libraries(test_animation_blend PRIVATE glad glfw glm::glm assimp)
+
 # NetworkComponent test
 add_executable(test_network_component 
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_network_component.cpp
@@ -1106,6 +1117,7 @@ endif()
 set(GL_TESTS
     test_ai_brain
     test_ai_component
+    test_animation_blend
     test_animation_component
     test_audio_compressed
     test_event_system
