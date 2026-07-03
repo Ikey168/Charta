@@ -11,6 +11,10 @@ project(IKoreEngine LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Register unit tests with CTest so the headless suite can gate PRs (see the
+# HEADLESS_TESTS block at the end of this file and .github/workflows/tests.yml).
+enable_testing()
+
 include(FetchContent)
 
 # GLFW
@@ -867,3 +871,106 @@ if (APPLE)
 endif()
 
 install(TARGETS IKore RUNTIME DESTINATION bin)
+
+# ---------------------------------------------------------------------------
+# Headless unit-test gate (issue: wire the test suite into CI as a PR check).
+#
+# These test_* targets are header-only / deterministic - they need no GL context,
+# window, or audio device - so they run anywhere and gate every PR. Registered with
+# CTest under the "headless" label and aggregated into the `headless_tests` target so
+# CI can build + run just this subset:
+#     cmake --build build --target headless_tests -j
+#     ctest --test-dir build -L headless --output-on-failure
+# GL/GLFW/OpenAL/Bullet-linked tests are intentionally excluded (they need a display
+# or device). When adding a new headless test, add its target name here.
+# ---------------------------------------------------------------------------
+set(HEADLESS_TESTS
+    test_app_shell
+    test_archetype_ecs
+    test_audio_decode
+    test_audio_streaming
+    test_benchmark
+    test_crowd
+    test_cv_robust
+    test_data_export
+    test_debug_console
+    test_debug_text
+    test_desync
+    test_determinism
+    test_doodle_library
+    test_doodle_scene
+    test_dungeon_game
+    test_ecs_benchmark
+    test_ecs_query
+    test_ecs_systems
+    test_entity_inspector
+    test_file_watcher
+    test_frame_graph
+    test_geojson_importer
+    test_ghost_replay
+    test_glyph_net
+    test_hud_framework
+    test_ibl_brdf
+    test_input_map
+    test_leaderboard
+    test_level_catalog
+    test_level_format
+    test_level_review
+    test_level_share
+    test_log_system
+    test_menu_system
+    test_navmesh
+    test_normal_mapping
+    test_particle_emit
+    test_particle_sim
+    test_pbr_brdf
+    test_pbr_material
+    test_pbr_textures
+    test_perf_stats
+    test_picking
+    test_quest_gen
+    test_rectify
+    test_render_pass_graph
+    test_rollback
+    test_scene_author
+    test_scene_hierarchy
+    test_settings
+    test_shadow_cascade_build
+    test_shadow_cascades
+    test_shadow_filtering
+    test_simulation
+    test_skinned_shadow
+    test_skinning
+    test_ssao_kernel
+    test_svg_floorplan
+    test_symbol_recognizer
+    test_symbols
+    test_timeline
+    test_tmx_importer
+    test_tone_mapping
+    test_tonemap_chain
+    test_topology
+    test_tour_camera
+    test_tower_defense
+    test_ui_scaling
+    test_vectorize
+    test_vertical_slice
+    test_weekly_challenge
+)
+
+set(_present_headless_tests "")
+foreach(_t ${HEADLESS_TESTS})
+    if(TARGET ${_t})
+        add_test(NAME ${_t} COMMAND ${_t})
+        set_tests_properties(${_t} PROPERTIES LABELS headless)
+        list(APPEND _present_headless_tests ${_t})
+    else()
+        message(WARNING "HEADLESS_TESTS lists '${_t}' but no such target exists")
+    endif()
+endforeach()
+
+# Aggregate target so CI can build only the headless suite (skipping the engine and
+# the GL/audio-linked tests) before running `ctest -L headless`.
+if(_present_headless_tests)
+    add_custom_target(headless_tests DEPENDS ${_present_headless_tests})
+endif()
