@@ -639,7 +639,12 @@ int main() {
     // === Model Loading ===
     LOG_INFO("Loading 3D model...");
     IKore::Model cubeModel;
-    bool modelLoaded = cubeModel.loadFromFile("assets/models/cube.obj");
+    // Prefer the rigged, animated model so the skinned path (issue #287) is exercised; fall
+    // back to the static cube (or primitive geometry) if it is unavailable.
+    bool modelLoaded = cubeModel.loadFromFile("assets/models/animated_bone.gltf");
+    if (!modelLoaded) {
+        modelLoaded = cubeModel.loadFromFile("assets/models/cube.obj");
+    }
     if (!modelLoaded || cubeModel.getMeshes().empty()) {
         LOG_ERROR("Failed to load model - falling back to primitive geometry");
     } else {
@@ -647,10 +652,19 @@ int main() {
     }
 
     // Bone-palette source for the skinned forward + shadow passes (issue #287). An animated
-    // model's AnimationComponent produces the per-frame palette via getBoneTransforms(); it
-    // is advanced in the render loop only when the model has bones. The cube here is static
-    // (no bones), so no palette is uploaded and the render is unchanged.
+    // model's AnimationComponent produces the per-frame palette via getBoneTransforms(), which
+    // is advanced in the render loop when the model has bones. Load the model's animation clips
+    // and play the first so the skinned path actually deforms at runtime; a static model (or
+    // the primitive fallback) adds no palette and renders unchanged.
     IKore::AnimationComponent modelAnimation;
+    if (modelLoaded && cubeModel.hasBones() && !cubeModel.getAnimations().empty()) {
+        modelAnimation.setBoneInfoMap(cubeModel.getBoneInfoMap());
+        for (const auto& clip : cubeModel.getAnimations()) {
+            modelAnimation.addAnimation(clip.name, std::make_unique<IKore::Animation>(clip));
+        }
+        modelAnimation.playAnimation(cubeModel.getAnimations().front().name, /*loop=*/true, /*speed=*/1.0f);
+        LOG_INFO("Playing skinned animation (" + std::to_string(cubeModel.getBoneCount()) + " bone(s))");
+    }
 
     // Delta time tracking
     double lastFrameTime = glfwGetTime();

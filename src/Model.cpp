@@ -1,7 +1,8 @@
 #include "Model.h"
 #include "Shader.h"
 #include "core/Logger.h"
-#include <glm/gtc/type_ptr.hpp> // glm::value_ptr for renderSelectable (issue #269)
+#include <glm/gtc/type_ptr.hpp>    // glm::value_ptr for renderSelectable (issue #269)
+#include <glm/gtc/quaternion.hpp>  // glm::quat for animation keyframes (issue #287)
 
 #include <iostream>
 #include <filesystem>
@@ -333,8 +334,57 @@ void Model::loadModel(const std::string& path) {
     if (m_hasAnimations) {
         LOG_INFO("Model has " + std::to_string(scene->mNumAnimations) + " animations");
     }
-    
+
     processNode(scene->mRootNode, scene);
+
+    // Extract the animation clips after the meshes, so m_boneInfoMap (bone ids + offsets,
+    // filled by processMesh) is available to key each animated bone (issue #287).
+    if (m_hasAnimations) {
+        extractAnimations(scene);
+    }
+}
+
+void Model::extractAnimations(const aiScene* scene) {
+    m_animations.clear();
+    for (unsigned int a = 0; a < scene->mNumAnimations; ++a) {
+        const aiAnimation* aiAnim = scene->mAnimations[a];
+        // Assimp reports keyframe times in ticks; convert to seconds so the runtime can
+        // advance the animation by a per-frame dt in seconds.
+        const double tps = aiAnim->mTicksPerSecond != 0.0 ? aiAnim->mTicksPerSecond : 25.0;
+
+        Animation anim;
+        anim.name = aiAnim->mName.length > 0 ? std::string(aiAnim->mName.C_Str())
+                                             : ("animation_" + std::to_string(a));
+        anim.ticksPerSecond = 1.0f; // timestamps below are already in seconds
+        anim.duration = static_cast<float>(aiAnim->mDuration / tps);
+
+        for (unsigned int c = 0; c < aiAnim->mNumChannels; ++c) {
+            const aiNodeAnim* ch = aiAnim->mChannels[c];
+            Bone bone;
+            bone.name = ch->mNodeName.C_Str();
+            auto it = m_boneInfoMap.find(bone.name);
+            bone.id = (it != m_boneInfoMap.end()) ? it->second.id : -1;
+
+            for (unsigned int k = 0; k < ch->mNumPositionKeys; ++k) {
+                const aiVectorKey& key = ch->mPositionKeys[k];
+                bone.positions.push_back({glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z),
+                                          static_cast<float>(key.mTime / tps)});
+            }
+            for (unsigned int k = 0; k < ch->mNumRotationKeys; ++k) {
+                const aiQuatKey& key = ch->mRotationKeys[k];
+                bone.rotations.push_back({glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z),
+                                          static_cast<float>(key.mTime / tps)});
+            }
+            for (unsigned int k = 0; k < ch->mNumScalingKeys; ++k) {
+                const aiVectorKey& key = ch->mScalingKeys[k];
+                bone.scales.push_back({glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z),
+                                       static_cast<float>(key.mTime / tps)});
+            }
+            anim.bones.push_back(std::move(bone));
+        }
+        anim.boneInfoMap = m_boneInfoMap;
+        m_animations.push_back(std::move(anim));
+    }
 }
 
 void Model::processNode(aiNode* node, const aiScene* scene) {

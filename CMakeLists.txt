@@ -284,8 +284,8 @@ add_executable(scene_graph_demo
 )
 
 # MeshComponent Test executable
-add_executable(test_mesh_component 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/test_mesh_component.cpp 
+add_executable(test_mesh_component
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/test_mesh_component.cpp
     ${CORE_SOURCES}
     ${AUDIO_SOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Model.cpp
@@ -293,6 +293,20 @@ add_executable(test_mesh_component
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Frustum.cpp
 )
+
+# Skinned skeletal-animation loading test (issue #287): loads the animated glTF and checks
+# the bone palette actually animates. Needs a GL context (Model creates VBOs), so it is a
+# gl-labelled test run under Xvfb.
+add_executable(test_skinned_animation
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_skinned_animation.cpp
+    ${CORE_SOURCES}
+    ${AUDIO_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Shader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Frustum.cpp
+)
+target_link_libraries(test_skinned_animation PRIVATE glfw glad glm stb_image assimp OpenGL::GL BulletDynamics BulletCollision LinearMath ${OPENAL_LIBRARIES})
 
 # MeshComponent Minimal Test executable  
 add_executable(test_mesh_component_minimal 
@@ -1043,6 +1057,7 @@ set(GL_TESTS
     test_physics_simple
     test_scene_graph
     test_scripting
+    test_skinned_animation
 )
 
 set(_present_gl_tests "")
@@ -1065,4 +1080,9 @@ endif()
 # src/shaders/ by relative path, so it must run from the repository root (issue #294).
 if(TARGET test_particle_component)
     set_tests_properties(test_particle_component PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+# test_skinned_animation loads assets/models/animated_bone.gltf by relative path (issue #287).
+if(TARGET test_skinned_animation)
+    set_tests_properties(test_skinned_animation PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
