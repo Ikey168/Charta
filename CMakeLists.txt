@@ -680,6 +680,11 @@ add_executable(test_enemy_behaviors
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_enemy_behaviors.cpp
 )
 
+# Pushable blocks (Sokoban) + block-aware solver over DungeonGame rules (#345) - header-only.
+add_executable(test_pushable_blocks
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pushable_blocks.cpp
+)
+
 # GeoJSON/OSM map data -> playable DungeonGame world (#313) - header-only.
 add_executable(test_city_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
@@ -1130,6 +1135,7 @@ set(HEADLESS_TESTS
     test_perf_stats
     test_photo_level
     test_picking
+    test_pushable_blocks
     test_quest_gen
     test_rectify
     test_render_pass_graph
