@@ -700,6 +700,11 @@ add_executable(test_multi_room
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_multi_room.cpp
 )
 
+# Ordered campaign with unlocks + persistent progress via the Settings store (#347) - header-only.
+add_executable(test_campaign
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_campaign.cpp
+)
+
 # Headless tower-defense mode on the room topology: doorway-graph pathing, tower
 # damage, lives, win/lose, determinism (#271) - header-only.
 add_executable(test_tower_defense
@@ -1091,6 +1096,7 @@ set(HEADLESS_TESTS
     test_audio_decode
     test_audio_streaming
     test_benchmark
+    test_campaign
     test_city_game
     test_crowd
     test_cv_robust
