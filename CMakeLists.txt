@@ -75,6 +75,14 @@ set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "" FORCE)
+# assimp v5.3.1 bundles an old zlib whose zutil.h redefines fdopen(); against a very
+# new SDK (macOS Xcode 26 / clang) that macro clashes with the system <stdio.h> and the
+# vendored zlib fails to compile. macOS ships a usable system zlib, so use it there
+# instead of the bundled copy. Linux/Windows keep the bundled zlib (it compiles on their
+# toolchains, and the Windows runner has no system zlib to find).
+if(APPLE)
+    set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "" FORCE)
+endif()
 FetchContent_Declare(
   assimp
   GIT_REPOSITORY https://github.com/assimp/assimp.git
