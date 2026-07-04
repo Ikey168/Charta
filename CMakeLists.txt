@@ -846,6 +846,18 @@ add_executable(test_ghost_race
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ghost_race.cpp
 )
 
+# Gameplay-event detection -> particle burst + sound cue mapping (#353) - header-only.
+add_executable(test_game_events
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_game_events.cpp
+)
+
+# GL render of gameplay-event particle bursts offscreen (#353). Links glad/glfw/glm and needs
+# a GL context, so it is a gl-labelled test (run under Xvfb + software GL).
+add_executable(test_game_fx_gl
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_game_fx_gl.cpp
+)
+target_link_libraries(test_game_fx_gl PRIVATE glad glfw glm::glm)
+
 # Shareable spectator replays: content-verified run/match codec + deterministic
 # per-tick playback (single run and versus) (#317) - header-only.
 add_executable(test_replay
@@ -1131,6 +1143,7 @@ set(HEADLESS_TESTS
     test_fairness_gate
     test_file_watcher
     test_frame_graph
+    test_game_events
     test_geojson_importer
     test_ghost_race
     test_ghost_replay
@@ -1232,6 +1245,7 @@ set(GL_TESTS
     test_dungeon_render_gl
     test_event_system
     test_event_system_simple
+    test_game_fx_gl
     test_material_component
     test_mesh_component
     test_mesh_component_geometry
