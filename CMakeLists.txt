@@ -746,6 +746,11 @@ add_executable(test_city_osm_rich
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_osm_rich.cpp
 )
 
+# Bounded soak: long-session stability under sanitizers (#375) - header-only.
+add_executable(test_soak
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_soak.cpp
+)
+
 # Deterministic solvability validator + auto-solver over DungeonGame rules (#316) - header-only.
 add_executable(test_solver
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_solver.cpp
@@ -1346,6 +1351,7 @@ set(HEADLESS_TESTS
     test_simulation
     test_skinned_shadow
     test_skinning
+    test_soak
     test_solver
     test_spectator_controls
     test_spectator_lobby
