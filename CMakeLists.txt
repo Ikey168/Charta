@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 cmake_policy(VERSION 3.10)
 
+# CMake 4.x (as installed on the macOS/Windows CI runners) removed compatibility with
+# projects requesting cmake_minimum_required(VERSION <3.5). Several FetchContent
+# dependencies (glad, glfw, glm, bullet, imgui) still declare such an old minimum, so
+# there they fail to configure with "Compatibility with CMake < 3.5 has been removed"
+# (older CMake, e.g. on the Linux runners, only warns). Provide a policy floor so those
+# subprojects configure on every runner. A -DCMAKE_POLICY_VERSION_MINIMUM=... override
+# still wins.
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+endif()
+
 # Set modern OpenGL preference policy
 if(POLICY CMP0072)
     cmake_policy(SET CMP0072 NEW)
