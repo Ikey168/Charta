@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 cmake_policy(VERSION 3.10)
 
+# CMake 4.x (as installed on the macOS/Windows CI runners) removed compatibility with
+# projects requesting cmake_minimum_required(VERSION <3.5). Several FetchContent
+# dependencies (glad, glfw, glm, bullet, imgui) still declare such an old minimum, so
+# there they fail to configure with "Compatibility with CMake < 3.5 has been removed"
+# (older CMake, e.g. on the Linux runners, only warns). Provide a policy floor so those
+# subprojects configure on every runner. A -DCMAKE_POLICY_VERSION_MINIMUM=... override
+# still wins.
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+endif()
+
 # Set modern OpenGL preference policy
 if(POLICY CMP0072)
     cmake_policy(SET CMP0072 NEW)
@@ -59,11 +70,24 @@ target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
 # Assimp
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+# assimp v5.3.1 compiles its own library with -Werror. Newer compilers (e.g. clang 21 on
+# the macOS runner) add warnings the old code trips - -Wnontrivial-memcall in
+# SceneCombiner.cpp - which then fail the build. Don't treat the vendored library's
+# warnings as errors; this only affects assimp's own sources, not ours.
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_FBX_IMPORTER ON CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "" FORCE)
+# assimp v5.3.1 bundles an old zlib whose zutil.h redefines fdopen(); against a very
+# new SDK (macOS Xcode 26 / clang) that macro clashes with the system <stdio.h> and the
+# vendored zlib fails to compile. macOS ships a usable system zlib, so use it there
+# instead of the bundled copy. Linux/Windows keep the bundled zlib (it compiles on their
+# toolchains, and the Windows runner has no system zlib to find).
+if(APPLE)
+    set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "" FORCE)
+endif()
 FetchContent_Declare(
   assimp
   GIT_REPOSITORY https://github.com/assimp/assimp.git
