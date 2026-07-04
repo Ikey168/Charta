@@ -58,3 +58,15 @@ jobs:
       # a real regression (a broken shader lands far above this, e.g. MAE ~40 for a wrong
       # image).
       run: ./render_golden --check tools/golden/scene.ppm --mae 10
+
+    # Doodlebound live-render golden (#355): rasterizes the fixed play scene (per-type meshes
+    # + materials + top-down game camera) and gates it against tools/golden/doodle.ppm, so a
+    # regression in the mesh transforms, materials, or camera fails CI.
+    - name: Build render_doodle_golden
+      run: g++ -std=c++17 -O2 tools/render_doodle_golden.cpp -lEGL -lGL -o render_doodle_golden
+
+    - name: Check Doodlebound render against golden
+      env:
+        LIBGL_ALWAYS_SOFTWARE: "1"
+        GALLIUM_DRIVER: llvmpipe
+      run: ./render_doodle_golden --check tools/golden/doodle.ppm --mae 10
