@@ -690,6 +690,11 @@ add_executable(test_solver
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_solver.cpp
 )
 
+# Multi-room levels from a cv::Topology room/doorway graph (#344) - header-only.
+add_executable(test_multi_room
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_multi_room.cpp
+)
+
 # Headless tower-defense mode on the room topology: doorway-graph pathing, tower
 # damage, lives, win/lose, determinism (#271) - header-only.
 add_executable(test_tower_defense
@@ -1114,6 +1119,7 @@ set(HEADLESS_TESTS
     test_level_share
     test_log_system
     test_menu_system
+    test_multi_room
     test_navmesh
     test_normal_mapping
     test_particle_emit
