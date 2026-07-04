@@ -1054,6 +1054,11 @@ add_executable(test_input_map
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_input_map.cpp
 )
 
+# Platform input: rebind -> GameInput, gamepad, DPI/safe-area UI scaling (#368) - header-only.
+add_executable(test_input_mapping
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_input_mapping.cpp
+)
+
 # DPI / resolution UI scaling core (Milestone 9 / #61) - header-only.
 add_executable(test_ui_scaling
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_scaling.cpp
@@ -1239,6 +1244,7 @@ set(HEADLESS_TESTS
     test_hud_framework
     test_ibl_brdf
     test_input_map
+    test_input_mapping
     test_leaderboard
     test_level_autorepair
     test_level_catalog
