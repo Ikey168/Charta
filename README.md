@@ -167,6 +167,20 @@ The full strategy and rationale are in
 
 ---
 
+## Documentation
+
+Top-level guides for the two audiences a 1.0 needs, plus per-header docs throughout `src/`:
+
+- **[Player guide](docs/PLAYER_GUIDE.md)** - capture, play, share, and compete (campaign,
+  weekly, versus/FFA/co-op, editor, accessibility).
+- **[Developer guide: add a mechanic](docs/DEVELOPER_ADD_A_MECHANIC.md)** - the full path from
+  a drawn symbol to rendered pixels (spawn vocabulary -> `DungeonGame` -> CV -> solver ->
+  rollback digest -> render data), worked through the key/door mechanic.
+- **[Architecture map](docs/ARCHITECTURE.md)** - the headless-core + engine-wiring model,
+  determinism/replay-verifiability, and the CI gate topology.
+
+---
+
 ## Contributing
 
 Issues and pull requests are welcome. Development happens against feature branches;
