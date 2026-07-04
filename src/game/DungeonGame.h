@@ -103,6 +103,14 @@ struct Hazard {
     ecs::Vec3 position{};
 };
 
+/// A pushable block (Sokoban, #345). Solid like a wall, but when the player presses into
+/// it and the cell one @c blockGrid step ahead is clear, the block slides one cell over.
+/// A block can be shoved to seal or unseal a passage, so a level can require the correct
+/// pushes to clear (and a wrong push can strand an objective).
+struct Block {
+    ecs::Vec3 position{}; ///< center; moves in whole @c blockGrid steps.
+};
+
 /// A self-contained, headless dungeon game built from a converted scene.
 struct DungeonGame {
     // Geometry + actors (populated by loadGame).
@@ -120,6 +128,9 @@ struct DungeonGame {
     std::vector<ToggleWall> toggleWalls;
     std::vector<Hazard> hazards;
 
+    // Pushable blocks (#345); empty on a classic level, which then plays byte-identically.
+    std::vector<Block> blocks;
+
     // Live ranged-enemy projectiles (#320); empty unless a Ranged enemy has fired.
     std::vector<Projectile> projectiles;
 
@@ -134,6 +145,7 @@ struct DungeonGame {
     float switchRadius{0.5f};
     float hazardRadius{0.4f};
     float featureSize{1.0f}; ///< footprint of a spawned locked door / toggle wall.
+    float blockGrid{1.0f};   ///< pushable-block footprint and per-push step (#345).
     float projectileSpeed{6.0f};      ///< ranged projectile speed.
     float projectileRadius{0.25f};    ///< projectile hit radius.
     float rangedFireInterval{1.0f};   ///< seconds between ranged shots.
@@ -158,8 +170,12 @@ struct DungeonGame {
     void update(const GameInput& in, float dt) {
         if (status != GameStatus::Playing) return;
 
-        // Player movement with wall collision (axis slide).
+        // Pushable blocks (#345): a block directly ahead slides one grid cell if the cell
+        // beyond it is clear. Runs before the move so the vacated cell is then walkable.
         const float len = std::sqrt(in.moveX * in.moveX + in.moveZ * in.moveZ);
+        if (!blocks.empty() && len > 1e-6f) tryPushBlocks(in);
+
+        // Player movement with wall collision (axis slide).
         if (len > 1e-6f) {
             const float step = playerSpeed * dt;
             playerPosition =
@@ -300,6 +316,9 @@ struct DungeonGame {
         for (const ToggleWall& w : toggleWalls) {
             if (w.solid && circleHitsBox(pos, radius, w.box)) return true;
         }
+        for (const Block& b : blocks) {
+            if (circleHitsBox(pos, radius, blockBox(b))) return true;
+        }
         return false;
     }
 
@@ -334,6 +353,55 @@ private:
         const ecs::Vec3 zOnly{from.x, from.y, from.z + dz};
         if (!blocked(zOnly, radius)) return zOnly;
         return from; // fully blocked this step
+    }
+
+    /// The oriented (axis-aligned) footprint box of a pushable block (#345).
+    world::Box blockBox(const Block& b) const {
+        world::Box bb;
+        bb.center = ecs::Vec3{b.position.x, blockGrid * 0.5f, b.position.z};
+        bb.size = ecs::Vec3{blockGrid, blockGrid, blockGrid};
+        bb.yaw = 0.0f;
+        return bb;
+    }
+
+    /// True if a block could occupy cell center @p c: clear of walls, still-closed doors,
+    /// solid toggle walls, and every other block.
+    bool blockTargetClear(const ecs::Vec3& c, const Block* exclude) const {
+        const float r = blockGrid * 0.5f - 1e-3f; // footprint that must fit in the cell
+        if (hitsWall(c, r)) return false;
+        for (const LockedDoor& d : lockedDoors)
+            if (!d.open && circleHitsBox(c, r, d.box)) return false;
+        for (const ToggleWall& w : toggleWalls)
+            if (w.solid && circleHitsBox(c, r, w.box)) return false;
+        for (const Block& o : blocks) {
+            if (&o == exclude) continue;
+            if (std::fabs(c.x - o.position.x) < blockGrid - 1e-3f &&
+                std::fabs(c.z - o.position.z) < blockGrid - 1e-3f)
+                return false;
+        }
+        return true;
+    }
+
+    /// Push the block directly ahead of the player one grid cell, if the cell beyond is
+    /// clear. The push direction is the dominant input axis (tie-break: X), so a diagonal
+    /// press resolves to a single deterministic push.
+    void tryPushBlocks(const GameInput& in) {
+        float dx = 0.0f, dz = 0.0f;
+        if (std::fabs(in.moveX) >= std::fabs(in.moveZ))
+            dx = in.moveX > 0.0f ? 1.0f : (in.moveX < 0.0f ? -1.0f : 0.0f);
+        else
+            dz = in.moveZ > 0.0f ? 1.0f : (in.moveZ < 0.0f ? -1.0f : 0.0f);
+        if (dx == 0.0f && dz == 0.0f) return;
+
+        const float reach = playerRadius + blockGrid * 0.5f + 0.05f;
+        const ecs::Vec3 probe{playerPosition.x + dx * reach, playerPosition.y, playerPosition.z + dz * reach};
+        const float half = blockGrid * 0.5f;
+        for (Block& b : blocks) {
+            if (std::fabs(probe.x - b.position.x) > half || std::fabs(probe.z - b.position.z) > half) continue;
+            const ecs::Vec3 target{b.position.x + dx * blockGrid, b.position.y, b.position.z + dz * blockGrid};
+            if (blockTargetClear(target, &b)) b.position = target;
+            return; // only the block directly ahead of the player
+        }
     }
 };
 
@@ -407,6 +475,8 @@ inline DungeonGame loadGame(const SceneDescription& scene) {
                 ToggleWall{detail::featureBox(s.position, s.yaw, game.featureSize), id, true});
         } else if (base == "hazard" || base == "spike") {
             game.hazards.push_back(Hazard{s.position});
+        } else if (base == "block") {
+            game.blocks.push_back(Block{s.position});
         }
     }
     game.totalCoins = static_cast<int>(game.coins.size());

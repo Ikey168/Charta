@@ -5,8 +5,10 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <map>
 #include <queue>
 #include <string>
+#include <utility>
 #include <vector>
 
 /**
@@ -83,6 +85,7 @@ inline SolverGrid buildGrid(const DungeonGame& g, const SolveOptions& opt) {
     for (const world::Box& b : g.walls) grow(b.center, 0.5f * std::max(std::fabs(b.size.x), std::fabs(b.size.z)));
     for (const Coin& c : g.coins) grow(c.position, 0.0f);
     for (const Enemy& e : g.enemies) grow(e.position, 0.0f);
+    for (const Block& b : g.blocks) grow(b.position, 0.5f * g.blockGrid);
     if (g.hasExit) grow(g.exitPosition, 0.0f);
 
     SolverGrid grid;
@@ -99,6 +102,195 @@ inline SolverGrid buildGrid(const DungeonGame& g, const SolveOptions& opt) {
 } // namespace detail
 
 /**
+ * @brief Block-aware solver (Sokoban): BFS over (player cell, coin mask, block cells).
+ *
+ * Used automatically by solve() when the level has pushable blocks (#345). A step moves the
+ * player to an adjacent walkable cell; if that cell holds a block and the cell one step
+ * beyond is walkable and block-free, the block is pushed there instead (still one player
+ * step, so @c par stays comparable to the block-free solver). Static walls, still-closed
+ * doors, and solid toggle walls are impassable, evaluated at the start state - so a level
+ * mixing blocks with keys/doors is treated conservatively (doors assumed closed).
+ *
+ * The grid step is @c blockGrid so one push equals one cell. The state space is
+ * cells * 2^coins * (block placements); a bounded backstop stops a pathological search.
+ */
+inline SolveResult solveWithBlocks(const DungeonGame& game, const SolveOptions& opt) {
+    SolveResult res;
+    res.totalCoins = static_cast<int>(game.coins.size());
+    const int nCoins = res.totalCoins;
+
+    SolveOptions bopt = opt;
+    bopt.cellSize = game.blockGrid > 1e-4f ? game.blockGrid : 1.0f; // one push == one cell
+    const detail::SolverGrid grid = detail::buildGrid(game, bopt);
+    const int cellCount = grid.nx * grid.nz;
+    if (cellCount <= 0) return res;
+    const int nx = grid.nx;
+
+    // Static walkability WITHOUT the blocks (blocks are dynamic state): a block-free copy so
+    // blocked() still accounts for walls, closed doors, and solid toggle walls.
+    DungeonGame stat = game;
+    stat.blocks.clear();
+    std::vector<char> walkable(static_cast<std::size_t>(cellCount), 0);
+    std::vector<std::uint32_t> coinsAt(static_cast<std::size_t>(cellCount), 0);
+    std::vector<char> exitAt(static_cast<std::size_t>(cellCount), 0);
+    for (int i = 0; i < cellCount; ++i) {
+        const ecs::Vec3 c = grid.center(i);
+        if (stat.blocked(c, game.playerRadius)) continue;
+        walkable[static_cast<std::size_t>(i)] = 1;
+        for (int k = 0; k < nCoins; ++k) {
+            const Coin& coin = game.coins[static_cast<std::size_t>(k)];
+            const float dx = c.x - coin.position.x, dz = c.z - coin.position.z;
+            const float r = game.playerRadius + game.coinRadius;
+            if (dx * dx + dz * dz <= r * r) coinsAt[static_cast<std::size_t>(i)] |= (1u << k);
+        }
+        if (game.hasExit) {
+            const float dx = c.x - game.exitPosition.x, dz = c.z - game.exitPosition.z;
+            const float r = game.playerRadius + game.exitRadius;
+            if (dx * dx + dz * dz <= r * r) exitAt[static_cast<std::size_t>(i)] = 1;
+        }
+    }
+
+    const int start = grid.cellOf(game.playerPosition.x, game.playerPosition.z);
+    if (start < 0 || !walkable[static_cast<std::size_t>(start)]) return res; // player boxed in
+
+    std::vector<int> startBlocks;
+    for (const Block& b : game.blocks) {
+        const int bc = grid.cellOf(b.position.x, b.position.z);
+        if (bc < 0) return res; // block off the grid: cannot model
+        startBlocks.push_back(bc);
+    }
+    std::sort(startBlocks.begin(), startBlocks.end());
+
+    if (nCoins > opt.maxCoinsExact) return res; // too many coins for the exact mask search
+    const std::uint32_t full = nCoins >= 32 ? 0xFFFFFFFFu : ((1u << nCoins) - 1u);
+
+    const int dxs[4] = {1, -1, 0, 0}, dzs[4] = {0, 0, 1, -1};
+    const std::size_t kStateCap = 4000000; // bounded-search backstop
+
+    auto blockIndexAt = [](const std::vector<int>& bl, int cell) -> int {
+        for (std::size_t i = 0; i < bl.size(); ++i)
+            if (bl[i] == cell) return static_cast<int>(i);
+        return -1;
+    };
+    // State key = [cell, mask, sorted block cells...].
+    auto encode = [&](int cell, std::uint32_t mask, const std::vector<int>& bl) {
+        std::vector<int> key;
+        key.reserve(bl.size() + 2);
+        key.push_back(cell);
+        key.push_back(static_cast<int>(mask));
+        for (int c : bl) key.push_back(c);
+        return key;
+    };
+
+    // Gated BFS: shortest player-step route that collects every coin and stands on the exit.
+    std::map<std::vector<int>, int> dist;
+    std::map<std::vector<int>, std::vector<int>> parent;
+    const std::vector<int> startKey = encode(start, coinsAt[static_cast<std::size_t>(start)], startBlocks);
+    dist[startKey] = 0;
+    std::queue<std::vector<int>> q;
+    q.push(startKey);
+    std::vector<int> goalKey;
+    bool found = false;
+    while (!q.empty()) {
+        const std::vector<int> cur = q.front();
+        q.pop();
+        const int cell = cur[0];
+        const std::uint32_t mask = static_cast<std::uint32_t>(cur[1]);
+        if (mask == full && exitAt[static_cast<std::size_t>(cell)]) { goalKey = cur; found = true; break; }
+        const int d0 = dist[cur];
+        const std::vector<int> bl(cur.begin() + 2, cur.end());
+        const int gx = cell % nx, gz = cell / nx;
+        for (int d = 0; d < 4; ++d) {
+            const int nb = grid.index(gx + dxs[d], gz + dzs[d]);
+            if (nb < 0 || !walkable[static_cast<std::size_t>(nb)]) continue;
+            std::vector<int> nbl = bl;
+            const int bidx = blockIndexAt(bl, nb);
+            if (bidx >= 0) { // pushing a block
+                const int beyond = grid.index(gx + 2 * dxs[d], gz + 2 * dzs[d]);
+                if (beyond < 0 || !walkable[static_cast<std::size_t>(beyond)]) continue;
+                if (blockIndexAt(bl, beyond) >= 0) continue;
+                nbl[static_cast<std::size_t>(bidx)] = beyond;
+                std::sort(nbl.begin(), nbl.end());
+            }
+            const std::uint32_t nmask = mask | coinsAt[static_cast<std::size_t>(nb)];
+            const std::vector<int> nkey = encode(nb, nmask, nbl);
+            if (dist.find(nkey) != dist.end()) continue;
+            dist[nkey] = d0 + 1;
+            parent[nkey] = cur;
+            q.push(nkey);
+        }
+        if (dist.size() > kStateCap) break;
+    }
+
+    if (found) {
+        res.solvable = true;
+        res.par = dist[goalKey];
+        res.reachableCoins = nCoins;
+        res.exitReachable = true;
+        res.unreachableObjectives = 0;
+        std::vector<int> cells;
+        std::vector<int> s = goalKey;
+        while (true) {
+            cells.push_back(s[0]);
+            const auto it = parent.find(s);
+            if (it == parent.end()) break;
+            s = it->second;
+        }
+        std::reverse(cells.begin(), cells.end());
+        for (int c : cells) res.path.push_back(grid.center(c));
+        return res;
+    }
+
+    // Unsolvable: report what the player could still reach (ignoring coin gating) by
+    // exploring (player cell, block cells) states.
+    std::map<std::vector<int>, char> seen;
+    auto rkey = [&](int cell, const std::vector<int>& bl) {
+        std::vector<int> k;
+        k.reserve(bl.size() + 1);
+        k.push_back(cell);
+        for (int c : bl) k.push_back(c);
+        return k;
+    };
+    std::queue<std::pair<int, std::vector<int>>> rq;
+    rq.push({start, startBlocks});
+    seen[rkey(start, startBlocks)] = 1;
+    std::uint32_t reachMask = coinsAt[static_cast<std::size_t>(start)];
+    bool exitSeen = exitAt[static_cast<std::size_t>(start)] != 0;
+    while (!rq.empty()) {
+        const std::pair<int, std::vector<int>> curp = rq.front();
+        rq.pop();
+        const int cell = curp.first;
+        const std::vector<int>& bl = curp.second;
+        const int gx = cell % nx, gz = cell / nx;
+        for (int d = 0; d < 4; ++d) {
+            const int nb = grid.index(gx + dxs[d], gz + dzs[d]);
+            if (nb < 0 || !walkable[static_cast<std::size_t>(nb)]) continue;
+            std::vector<int> nbl = bl;
+            const int bidx = blockIndexAt(bl, nb);
+            if (bidx >= 0) {
+                const int beyond = grid.index(gx + 2 * dxs[d], gz + 2 * dzs[d]);
+                if (beyond < 0 || !walkable[static_cast<std::size_t>(beyond)]) continue;
+                if (blockIndexAt(bl, beyond) >= 0) continue;
+                nbl[static_cast<std::size_t>(bidx)] = beyond;
+                std::sort(nbl.begin(), nbl.end());
+            }
+            const std::vector<int> k = rkey(nb, nbl);
+            if (seen.find(k) != seen.end()) continue;
+            seen[k] = 1;
+            reachMask |= coinsAt[static_cast<std::size_t>(nb)];
+            if (exitAt[static_cast<std::size_t>(nb)]) exitSeen = true;
+            rq.push({nb, nbl});
+        }
+        if (seen.size() > kStateCap) break;
+    }
+    for (int k = 0; k < nCoins; ++k)
+        if (reachMask & (1u << k)) ++res.reachableCoins;
+    res.exitReachable = exitSeen;
+    res.unreachableObjectives = (nCoins - res.reachableCoins) + (exitSeen ? 0 : 1);
+    return res;
+}
+
+/**
  * @brief Prove a level clearable and return the optimal clear route.
  *
  * BFS over (cell, coin bitmask): the start cell seeds whatever coins are collectible
@@ -109,6 +301,10 @@ inline SolverGrid buildGrid(const DungeonGame& g, const SolveOptions& opt) {
 inline SolveResult solve(const DungeonGame& game, const SolveOptions& opt = {}) {
     SolveResult res;
     res.totalCoins = static_cast<int>(game.coins.size());
+
+    // Pushable-block levels need the Sokoban-aware search (#345); classic levels take the
+    // original fast path below unchanged.
+    if (!game.blocks.empty()) return solveWithBlocks(game, opt);
 
     const detail::SolverGrid grid = detail::buildGrid(game, opt);
     const int cellCount = grid.nx * grid.nz;
