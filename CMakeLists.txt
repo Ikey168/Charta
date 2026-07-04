@@ -70,6 +70,11 @@ target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
 # Assimp
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+# assimp v5.3.1 compiles its own library with -Werror. Newer compilers (e.g. clang 21 on
+# the macOS runner) add warnings the old code trips - -Wnontrivial-memcall in
+# SceneCombiner.cpp - which then fail the build. Don't treat the vendored library's
+# warnings as errors; this only affects assimp's own sources, not ours.
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE BOOL "" FORCE)
