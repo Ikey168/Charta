@@ -56,6 +56,35 @@ struct DoodleNetState {
                 if (a.enemies[e].position.x != b.enemies[e].position.x ||
                     a.enemies[e].position.z != b.enemies[e].position.z) return false;
             }
+            // Richer semantics (#319/#320): key/door/switch/toggle-wall/projectile state is
+            // also mutable per tick, so include it so a divergence there is detected too.
+            if (a.keys.size() != b.keys.size() || a.lockedDoors.size() != b.lockedDoors.size() ||
+                a.switches.size() != b.switches.size() ||
+                a.toggleWalls.size() != b.toggleWalls.size() ||
+                a.projectiles.size() != b.projectiles.size()) {
+                return false;
+            }
+            for (std::size_t k = 0; k < a.keys.size(); ++k) {
+                if (a.keys[k].collected != b.keys[k].collected) return false;
+            }
+            for (std::size_t d = 0; d < a.lockedDoors.size(); ++d) {
+                if (a.lockedDoors[d].open != b.lockedDoors[d].open) return false;
+            }
+            for (std::size_t s = 0; s < a.switches.size(); ++s) {
+                if (a.switches[s].wasPressed != b.switches[s].wasPressed) return false;
+            }
+            for (std::size_t w = 0; w < a.toggleWalls.size(); ++w) {
+                if (a.toggleWalls[w].solid != b.toggleWalls[w].solid) return false;
+            }
+            for (std::size_t p = 0; p < a.projectiles.size(); ++p) {
+                const Projectile& pa = a.projectiles[p];
+                const Projectile& pb = b.projectiles[p];
+                if (pa.position.x != pb.position.x || pa.position.z != pb.position.z ||
+                    pa.velocity.x != pb.velocity.x || pa.velocity.z != pb.velocity.z ||
+                    pa.life != pb.life) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -116,6 +145,17 @@ inline std::uint64_t stateDigest(const DoodleNetState& state) {
         for (const Enemy& e : g.enemies) {
             detail::hashFloat(h, e.position.x);
             detail::hashFloat(h, e.position.z);
+        }
+        // Richer semantics (#319/#320). Empty on a classic level, so its digest is
+        // unchanged; only levels using these features fold extra state into the hash.
+        for (const Key& k : g.keys) h.addU32(k.collected ? 1u : 0u);
+        for (const LockedDoor& d : g.lockedDoors) h.addU32(d.open ? 1u : 0u);
+        for (const Switch& s : g.switches) h.addU32(s.wasPressed ? 1u : 0u);
+        for (const ToggleWall& w : g.toggleWalls) h.addU32(w.solid ? 1u : 0u);
+        for (const Projectile& p : g.projectiles) {
+            detail::hashFloat(h, p.position.x);
+            detail::hashFloat(h, p.position.z);
+            detail::hashFloat(h, p.life);
         }
     }
     return h.digest();

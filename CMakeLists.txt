@@ -633,6 +633,11 @@ add_executable(test_desync
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync.cpp
 )
 
+# Desync equality/digest covers the #319/#320 state (keys/doors/switches/projectiles) (#337) - header-only.
+add_executable(test_desync_features
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync_features.cpp
+)
+
 # Renderer-agnostic drawing->scene converter (Milestone 15 / #162) - header-only.
 add_executable(test_doodle_scene
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_scene.cpp
@@ -1051,6 +1056,7 @@ set(HEADLESS_TESTS
     test_debug_console
     test_debug_text
     test_desync
+    test_desync_features
     test_determinism
     test_doodle_library
     test_doodle_rollback
