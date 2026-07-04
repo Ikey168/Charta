@@ -32,19 +32,26 @@ struct SymbolSpawnOptions {
     float worldScale{1.0f};         ///< image pixels -> world units (matches assembleLevel).
     cv::SymbolOptions detect{};     ///< blob detection + recognition tunables.
     bool dropUnknown{false};        ///< skip blobs the recognizer could not name.
+    bool extendedVocabulary{false}; ///< use color+shape to recognize keys/doors/switches/
+                                    ///< hazards and enemy behaviors (#336); off keeps the
+                                    ///< Tier-1 color-only mapping.
 };
 
-/// Map already-detected symbol instances (image-space centroids) to entity spawns.
+/// Map already-detected symbol instances (image-space centroids) to entity spawns. With
+/// extendedVocabulary, a symbol's type comes from its color AND shape (#336) so the richer
+/// drawable types are recognized; otherwise the Tier-1 color mapping is used.
 inline std::vector<EntitySpawn> placeSpawns(const std::vector<cv::SymbolInstance>& symbols,
                                             const SymbolSpawnOptions& opt = {}) {
     std::vector<EntitySpawn> spawns;
     spawns.reserve(symbols.size());
     for (const cv::SymbolInstance& s : symbols) {
-        if (s.result.object.empty()) continue;
         if (opt.dropUnknown && s.result.color == cv::ColorClass::Unknown) continue;
-        spawns.push_back(EntitySpawn{s.result.object,
-                                     ecs::Vec3{s.cx * opt.worldScale, 0.0f, s.cy * opt.worldScale},
-                                     0.0f});
+        const std::string type = opt.extendedVocabulary
+                                     ? cv::extendedObject(s.result.color, s.result.shape)
+                                     : s.result.object;
+        if (type.empty()) continue;
+        spawns.push_back(
+            EntitySpawn{type, ecs::Vec3{s.cx * opt.worldScale, 0.0f, s.cy * opt.worldScale}, 0.0f});
     }
     return spawns;
 }

@@ -43,6 +43,40 @@ inline const char* colorObject(ColorClass c) {
     }
 }
 
+/**
+ * @brief Extended color+shape vocabulary (#334/#319/#320): the square shape keeps the
+ *        Tier-1 mapping (green=player, red=enemy, yellow=coin, blue=exit), and the other
+ *        shapes select the richer drawable types the DungeonGame now understands. The
+ *        returned strings are exactly loadGame()'s spawn vocabulary.
+ *
+ *   red    circle -> enemy_flee   triangle -> enemy_ranged  cross -> enemy_patrol
+ *   yellow triangle -> key
+ *   blue   triangle -> lockeddoor cross -> switch
+ *   green  triangle -> toggle     cross -> hazard
+ */
+inline const char* extendedObject(ColorClass c, ShapeClass s) {
+    switch (c) {
+        case ColorClass::Green:
+            if (s == ShapeClass::Triangle) return "toggle";
+            if (s == ShapeClass::Cross) return "hazard";
+            return "player";
+        case ColorClass::Red:
+            if (s == ShapeClass::Circle) return "enemy_flee";
+            if (s == ShapeClass::Triangle) return "enemy_ranged";
+            if (s == ShapeClass::Cross) return "enemy_patrol";
+            return "enemy";
+        case ColorClass::Yellow:
+            if (s == ShapeClass::Triangle) return "key";
+            return "coin";
+        case ColorClass::Blue:
+            if (s == ShapeClass::Triangle) return "lockeddoor";
+            if (s == ShapeClass::Cross) return "switch";
+            return "exit";
+        default:
+            return "";
+    }
+}
+
 struct ColorScore {
     ColorClass cls{ColorClass::Unknown};
     float confidence{0.0f};

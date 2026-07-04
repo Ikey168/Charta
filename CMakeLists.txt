@@ -714,6 +714,11 @@ add_executable(test_symbol_spawns
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbol_spawns.cpp
 )
 
+# Extended color+shape vocabulary: keys/doors/switches/hazards + enemy behaviors (#336) - header-only.
+add_executable(test_symbol_vocabulary
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbol_vocabulary.cpp
+)
+
 # Photographed drawing -> rectify (de-warp) -> recognized spawns -> playable (#315) - header-only.
 add_executable(test_photo_level
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_photo_level.cpp
@@ -1120,6 +1125,7 @@ set(HEADLESS_TESTS
     test_svg_floorplan
     test_symbol_recognizer
     test_symbol_spawns
+    test_symbol_vocabulary
     test_symbols
     test_timeline
     test_tmx_importer
