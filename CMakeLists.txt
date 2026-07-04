@@ -19,11 +19,19 @@ endif()
 
 project(IKoreEngine VERSION 1.0.0 LANGUAGES C CXX)
 
-# Release version for packaging (#369): defaults to the project version, overridable from CI
-# with -DIKORE_RELEASE_VERSION=<tag> so a tagged build stamps its real version.
+# Release version for packaging (#369) and the single version source (#376). The full semver
+# string (including any -rc pre-release) defaults to the release-candidate for the 1.0 window
+# and is overridable from CI with -DIKORE_RELEASE_VERSION=<tag> so a tagged build stamps its
+# real version. project(VERSION ...) above holds the numeric components.
 if(NOT DEFINED IKORE_RELEASE_VERSION)
-    set(IKORE_RELEASE_VERSION "${PROJECT_VERSION}")
+    set(IKORE_RELEASE_VERSION "1.0.0-rc.1")
 endif()
+
+# Generate the version header consumed by the engine / about screen, packaging, and the
+# version test. build/generated is on the include path for every target (#376).
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Version.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/generated/ikore/Version.h @ONLY)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -631,6 +639,11 @@ add_executable(test_doodle_rollback
 # Co-op shared-world mode: N avatars in one DungeonGame over rollback (#356) - header-only.
 add_executable(test_coop_shared_world
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_coop_shared_world.cpp
+)
+
+# Single version source: generated ikore/Version.h from the CMake project version (#376).
+add_executable(test_version
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_version.cpp
 )
 
 # Real-time two-player versus over the rollback session (#293) - header-only.
@@ -1381,6 +1394,7 @@ set(HEADLESS_TESTS
     test_tutorial
     test_ui_scaling
     test_vectorize
+    test_version
     test_versus
     test_versus_ffa
     test_vertical_slice

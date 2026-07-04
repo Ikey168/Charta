@@ -1,0 +1,23 @@
+#pragma once
+
+// Generated from cmake/Version.h.in by CMake configure (issue #376). Do not edit by hand.
+// The single source of truth for the version is project(IKoreEngine VERSION ...) in
+// CMakeLists.txt (with IKORE_RELEASE_VERSION carrying the full semver string, including any
+// -rc pre-release). The build stamp, packaging (#369), and the in-app about screen all read
+// from here.
+
+namespace IKore {
+namespace version {
+
+constexpr int kMajor = @PROJECT_VERSION_MAJOR@;
+constexpr int kMinor = @PROJECT_VERSION_MINOR@;
+constexpr int kPatch = @PROJECT_VERSION_PATCH@;
+
+/// Full semantic version string, e.g. "1.0.0-rc.1" or "1.0.0".
+constexpr const char* kString = "@IKORE_RELEASE_VERSION@";
+
+/// The product name shown alongside the version.
+constexpr const char* kProduct = "Doodlebound";
+
+} // namespace version
+} // namespace IKore
