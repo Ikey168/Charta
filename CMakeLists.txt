@@ -1005,6 +1005,11 @@ add_executable(test_audio_streaming
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_streaming.cpp
 )
 
+# Audio cues, volume mix, colorblind-safe palettes and accessibility toggles (#372) - header-only.
+add_executable(test_audio_accessibility
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_accessibility.cpp
+)
+
 # OGG/MP3 decode via vendored stb_vorbis + dr_mp3, against real embedded test
 # vectors (#258). Links the decoders' implementation TU.
 add_executable(test_audio_compressed
@@ -1252,6 +1257,7 @@ set(HEADLESS_TESTS
     test_ai_opponent
     test_app_shell
     test_archetype_ecs
+    test_audio_accessibility
     test_audio_decode
     test_audio_streaming
     test_benchmark
