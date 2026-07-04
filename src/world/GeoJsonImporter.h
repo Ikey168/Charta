@@ -47,18 +47,42 @@ struct Building {
 struct Road {
     std::vector<ecs::Vec3> centerline; // projected + smoothed, y = 0
     float width{0.0f};
+    std::string kind;                  // highway class (motorway/residential/footway/...)
 };
 
-struct Region { // water / park, as a flat slab
+/// What a Region represents, so downstream can treat water as dangerous, parks as walkable
+/// green space, etc. (issue #365).
+enum class RegionKind { Generic, Water, Park, Grass };
+
+struct Region { // water / park / grass, as a flat slab
     std::vector<ecs::Vec3> footprint;
     ecs::Vec3 center{};
     ecs::Vec3 size{};
+    RegionKind kind{RegionKind::Generic};
+};
+
+/// A point-of-interest node imported from a Point feature (amenity/shop/tourism/...) - a
+/// map-faithful place to seed an objective (issue #365).
+struct Poi {
+    ecs::Vec3 position{};
+    std::string category; // the tag value (e.g. "restaurant", "fountain"), or "poi"
+    std::string name;
+};
+
+/// A barrier way (wall/fence/hedge) imported from a tagged LineString - a thin obstacle the
+/// player collides with (issue #365).
+struct Barrier {
+    std::vector<ecs::Vec3> line; // projected + smoothed, y = 0
+    float width{0.5f};
+    std::string kind;            // wall/fence/hedge/...
 };
 
 struct City {
     std::vector<Building> buildings;
     std::vector<Road> roads;
     std::vector<Region> regions;
+    std::vector<Poi> pois;        // point features (#365)
+    std::vector<Barrier> barriers; // barrier ways (#365)
     std::vector<ecs::Vec3> intersections; // nodes shared by >= 2 roads
 };
 
@@ -69,6 +93,8 @@ struct GeoImportOptions {
     float roadThickness{0.05f};
     float regionThickness{0.02f};
     int roadSmoothingIterations{1};
+    float barrierWidth{0.5f};          // default barrier thickness when the kind is unknown (#365)
+    int barrierSmoothingIterations{0}; // barriers are usually straight; no smoothing by default
 };
 
 namespace detail {
@@ -263,6 +289,27 @@ inline float roadWidthFor(const std::string& highway) {
     return 5.0f;
 }
 
+/// Classify a polygon region from its natural / leisure / landuse tags (#365).
+inline RegionKind regionKindFor(const std::string& natural, const std::string& leisure,
+                                const std::string& landuse) {
+    if (natural == "water" || natural == "wetland" || landuse == "reservoir" ||
+        landuse == "basin")
+        return RegionKind::Water;
+    if (leisure == "park" || leisure == "garden") return RegionKind::Park;
+    if (landuse == "grass" || landuse == "meadow" || natural == "grassland" ||
+        leisure == "pitch")
+        return RegionKind::Grass;
+    return RegionKind::Generic;
+}
+
+/// Thickness of a barrier way from its kind (#365).
+inline float barrierWidthFor(const std::string& barrier, float fallback) {
+    if (barrier == "wall" || barrier == "city_wall" || barrier == "retaining_wall") return 0.5f;
+    if (barrier == "fence" || barrier == "guard_rail") return 0.3f;
+    if (barrier == "hedge") return 0.6f;
+    return fallback;
+}
+
 inline std::vector<ecs::Vec3> chaikin(const std::vector<ecs::Vec3>& pts, int iterations) {
     std::vector<ecs::Vec3> cur = pts;
     for (int it = 0; it < iterations && cur.size() >= 3; ++it) {
@@ -350,8 +397,9 @@ inline City importString(const std::string& geojson, const GeoImportOptions& opt
                                 (props.has("height") && gtype == "Polygon");
         const std::string natural = props.at("natural").asStr();
         const std::string leisure = props.at("leisure").asStr();
-        const bool isRegion = (natural == "water") || (leisure == "park") ||
-                              props.at("landuse").asStr() == "grass";
+        const std::string landuse = props.at("landuse").asStr();
+        const RegionKind regionKind = detail::regionKindFor(natural, leisure, landuse);
+        const bool isRegion = regionKind != RegionKind::Generic;
 
         if (gtype == "Polygon" && isBuilding) {
             std::vector<ecs::Vec3> ring = projectRing(coords[0]);
@@ -376,6 +424,7 @@ inline City importString(const std::string& geojson, const GeoImportOptions& opt
             if (ring.size() < 3) continue;
             Region r;
             r.footprint = ring;
+            r.kind = regionKind;
             bounds(ring, r.center, r.size);
             r.center.y = -options.regionThickness * 0.5f;
             r.size.y = options.regionThickness;
@@ -384,7 +433,8 @@ inline City importString(const std::string& geojson, const GeoImportOptions& opt
             std::vector<ecs::Vec3> line = projectRing(coords);
             if (line.size() < 2) continue;
             Road road;
-            road.width = detail::roadWidthFor(props.at("highway").asStr());
+            road.kind = props.at("highway").asStr();
+            road.width = detail::roadWidthFor(road.kind);
             road.centerline = detail::chaikin(line, options.roadSmoothingIterations);
             // Record endpoints for intersection detection (use pre-smoothing ends).
             for (const ecs::Vec3& end : {line.front(), line.back()}) {
@@ -394,6 +444,27 @@ inline City importString(const std::string& geojson, const GeoImportOptions& opt
                 use.second = end;
             }
             city.roads.push_back(std::move(road));
+        } else if (gtype == "LineString" && props.has("barrier")) {
+            std::vector<ecs::Vec3> line = projectRing(coords);
+            if (line.size() < 2) continue;
+            Barrier bar;
+            bar.kind = props.at("barrier").asStr();
+            bar.width = detail::barrierWidthFor(bar.kind, options.barrierWidth);
+            bar.line = detail::chaikin(line, options.barrierSmoothingIterations);
+            city.barriers.push_back(std::move(bar));
+        } else if (gtype == "Point" && coords.size() >= 2) {
+            Poi poi;
+            poi.position = project(coords);
+            for (const char* tag : {"amenity", "shop", "tourism", "leisure", "natural",
+                                    "historic", "man_made"}) {
+                if (props.has(tag)) {
+                    poi.category = props.at(tag).asStr();
+                    break;
+                }
+            }
+            if (poi.category.empty()) poi.category = "poi";
+            poi.name = props.at("name").asStr();
+            city.pois.push_back(std::move(poi));
         }
     }
 
