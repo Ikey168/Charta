@@ -604,6 +604,11 @@ add_executable(test_doodle_rollback
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_rollback.cpp
 )
 
+# Co-op shared-world mode: N avatars in one DungeonGame over rollback (#356) - header-only.
+add_executable(test_coop_shared_world
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_coop_shared_world.cpp
+)
+
 # Real-time two-player versus over the rollback session (#293) - header-only.
 add_executable(test_versus
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus.cpp
@@ -1162,6 +1167,7 @@ set(HEADLESS_TESTS
     test_benchmark
     test_campaign
     test_city_game
+    test_coop_shared_world
     test_crowd
     test_cv_robust
     test_data_export
