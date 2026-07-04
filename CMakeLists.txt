@@ -1044,6 +1044,11 @@ add_executable(test_picking
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_picking.cpp
 )
 
+# Unified save model, corruption-resistant writes, cloud sync, share/import (#370) - header-only.
+add_executable(test_save_sync
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_save_sync.cpp
+)
+
 # Persistent settings store (Milestone 9 / #58) - header-only.
 add_executable(test_settings
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_settings.cpp
@@ -1284,6 +1289,7 @@ set(HEADLESS_TESTS
     test_render_pass_graph
     test_replay
     test_rollback
+    test_save_sync
     test_scene_author
     test_scene_hierarchy
     test_settings
