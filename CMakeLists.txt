@@ -672,6 +672,11 @@ add_executable(test_desync_recovery
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desync_recovery.cpp
 )
 
+# Seeded determinism fuzzer over the sim with minimal-repro shrinking (#374) - header-only.
+add_executable(test_determinism_fuzz
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_determinism_fuzz.cpp
+)
+
 # Renderer-agnostic drawing->scene converter (Milestone 15 / #162) - header-only.
 add_executable(test_doodle_scene
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_scene.cpp
@@ -1263,6 +1268,7 @@ set(HEADLESS_TESTS
     test_desync_features
     test_desync_recovery
     test_determinism
+    test_determinism_fuzz
     test_doodle_library
     test_doodle_rollback
     test_doodle_scene
