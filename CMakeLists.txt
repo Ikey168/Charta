@@ -861,6 +861,11 @@ add_executable(test_level_gen
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_gen.cpp
 )
 
+# In-engine level editor: command layer, undo/redo, live solver fairness (#363) - header-only.
+add_executable(test_level_editor
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_editor.cpp
+)
+
 # Weekly challenge rotation + per-week leaderboard: deterministic week/selection,
 # replay-verified submits, week-rollover isolation (#273) - header-only.
 add_executable(test_weekly_challenge
@@ -1237,6 +1242,7 @@ set(HEADLESS_TESTS
     test_leaderboard
     test_level_autorepair
     test_level_catalog
+    test_level_editor
     test_level_format
     test_level_gen
     test_level_review
