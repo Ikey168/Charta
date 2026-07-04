@@ -1113,6 +1113,11 @@ add_executable(test_benchmark
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_benchmark.cpp
 )
 
+# Localization: string table, fallback, formatting, completeness (#373) - header-only.
+add_executable(test_localization
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_localization.cpp
+)
+
 # Structured logging system (Milestone 9 / #63) - header-only.
 add_executable(test_log_system
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_log_system.cpp
@@ -1299,6 +1304,7 @@ set(HEADLESS_TESTS
     test_level_gen
     test_level_review
     test_level_share
+    test_localization
     test_log_system
     test_menu_system
     test_multi_room
