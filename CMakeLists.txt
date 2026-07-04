@@ -629,6 +629,11 @@ add_executable(test_dungeon_features
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_features.cpp
 )
 
+# DungeonGame -> live ECS runtime bridge (engine wiring) - header-only.
+add_executable(test_dungeon_runtime
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_runtime.cpp
+)
+
 # Selectable enemy behaviors: patrol / flee / ranged, default chase (#320) - header-only.
 add_executable(test_enemy_behaviors
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_enemy_behaviors.cpp
@@ -898,6 +903,12 @@ add_executable(sample_benchmark_export
     ${CMAKE_CURRENT_SOURCE_DIR}/samples/benchmark_export_demo.cpp
 )
 
+# Doodle cores wired into the live ECS: GeoJSON city -> playable world -> DungeonRuntime
+# spawns/steps ECS entities, validated by the solver. Header-only, no GL context.
+add_executable(sample_doodle_runtime
+    ${CMAKE_CURRENT_SOURCE_DIR}/samples/doodle_runtime_demo.cpp
+)
+
 # Render-pass dependency graph (rendering modernization step 1 / #226) - header-only.
 add_executable(test_render_pass_graph
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_render_pass_graph.cpp
@@ -1022,6 +1033,7 @@ set(HEADLESS_TESTS
     test_doodle_scene
     test_dungeon_features
     test_dungeon_game
+    test_dungeon_runtime
     test_ecs_benchmark
     test_ecs_query
     test_ecs_systems
