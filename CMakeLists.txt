@@ -733,6 +733,18 @@ add_executable(test_tour_camera
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tour_camera.cpp
 )
 
+# Top-down/follow game camera + theme palette for Doodlebound (#354) - header-only.
+add_executable(test_game_camera
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_game_camera.cpp
+)
+
+# GL render from the game camera with a theme, offscreen (#354). Links glad/glfw/glm and
+# needs a GL context, so it is a gl-labelled test (run under Xvfb + software GL).
+add_executable(test_game_camera_gl
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_game_camera_gl.cpp
+)
+target_link_libraries(test_game_camera_gl PRIVATE glad glfw glm::glm)
+
 # Camera capture + perspective rectification (Milestone 16 / #166) - header-only.
 add_executable(test_rectify
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_rectify.cpp
@@ -1174,6 +1186,7 @@ set(HEADLESS_TESTS
     test_fairness_gate
     test_file_watcher
     test_frame_graph
+    test_game_camera
     test_game_events
     test_geojson_importer
     test_ghost_race
@@ -1278,6 +1291,7 @@ set(GL_TESTS
     test_dungeon_render_gl
     test_event_system
     test_event_system_simple
+    test_game_camera_gl
     test_game_fx_gl
     test_material_component
     test_mesh_component
