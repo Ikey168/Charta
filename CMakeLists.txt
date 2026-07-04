@@ -705,6 +705,11 @@ add_executable(test_campaign
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_campaign.cpp
 )
 
+# Authored tutorial/onboarding levels wired as the campaign's first world (#349) - header-only.
+add_executable(test_tutorial
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tutorial.cpp
+)
+
 # Headless tower-defense mode on the room topology: doorway-graph pathing, tower
 # damage, lives, win/lose, determinism (#271) - header-only.
 add_executable(test_tower_defense
@@ -1183,6 +1188,7 @@ set(HEADLESS_TESTS
     test_topology
     test_tour_camera
     test_tower_defense
+    test_tutorial
     test_ui_scaling
     test_vectorize
     test_versus
