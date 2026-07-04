@@ -840,6 +840,11 @@ add_executable(test_glyph_digits
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_glyph_digits.cpp
 )
 
+# Labeled glyph corpus + recognition-accuracy gate (#364) - header-only.
+add_executable(test_glyph_corpus
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_glyph_corpus.cpp
+)
+
 # Phase 4 symbol recognizer: data pipeline, export, accuracy/confusion harness,
 # heuristic fallback (Milestone 16/17 / #240) - header-only.
 add_executable(test_symbol_recognizer
@@ -1234,6 +1239,7 @@ set(HEADLESS_TESTS
     test_geojson_importer
     test_ghost_race
     test_ghost_replay
+    test_glyph_corpus
     test_glyph_digits
     test_glyph_net
     test_hud_framework
