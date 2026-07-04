@@ -160,6 +160,24 @@ if(NOT sol2_POPULATED)
   FetchContent_Populate(sol2)
 endif()
 
+# clang-21 (macOS / Xcode 26) rejects sol2 v3.3.0's bundled optional<T&>::emplace: it calls a
+# non-existent construct() and is missing its return (#338 / #366). That member is only
+# instantiated under libc++/clang-21 - Linux and Windows compile the unpatched header fine -
+# but the fix (rebind the reference exactly as the type's own operator= does) is valid C++ on
+# every toolchain, so patch it unconditionally in the fetched header. The regex targets only
+# the reference specialization (its construct() call is immediately followed by the closing
+# brace, unlike the primary template's, which returns value()), and is idempotent: once
+# rewritten the pattern no longer matches, so re-running configure is a no-op.
+set(_sol2_optional "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp")
+if(EXISTS "${_sol2_optional}")
+  file(READ "${_sol2_optional}" _sol2_optional_src)
+  string(REGEX REPLACE
+    "this->construct\\(std::forward<Args>\\(args\\)\\.\\.\\.\\);([ \t\r\n]*)}"
+    "this->operator=(std::forward<Args>(args)...); return *m_value;\\1}"
+    _sol2_optional_src "${_sol2_optional_src}")
+  file(WRITE "${_sol2_optional}" "${_sol2_optional_src}")
+endif()
+
 # OpenAL for 3D Audio
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
