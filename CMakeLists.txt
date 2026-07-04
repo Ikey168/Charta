@@ -816,6 +816,11 @@ add_executable(test_versus_ffa
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus_ffa.cpp
 )
 
+# FFA standings HUD + spectator replay scrubber over the HUD framework (#335) - header-only.
+add_executable(test_spectator_ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_ui.cpp
+)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
@@ -1121,6 +1126,7 @@ set(HEADLESS_TESTS
     test_skinned_shadow
     test_skinning
     test_solver
+    test_spectator_ui
     test_ssao_kernel
     test_svg_floorplan
     test_symbol_recognizer
