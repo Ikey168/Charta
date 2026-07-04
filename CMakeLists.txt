@@ -792,6 +792,11 @@ add_executable(test_level_catalog
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_catalog.cpp
 )
 
+# Solver-as-oracle seeded procedural level generator (#348) - header-only.
+add_executable(test_level_gen
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_gen.cpp
+)
+
 # Weekly challenge rotation + per-week leaderboard: deterministic week/selection,
 # replay-verified submits, week-rollover isolation (#273) - header-only.
 add_executable(test_weekly_challenge
@@ -1120,6 +1125,7 @@ set(HEADLESS_TESTS
     test_leaderboard
     test_level_catalog
     test_level_format
+    test_level_gen
     test_level_review
     test_level_share
     test_log_system
