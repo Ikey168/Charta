@@ -733,6 +733,11 @@ add_executable(test_tower_defense
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tower_defense.cpp
 )
 
+# Single-elimination tournament bracket over verified match records (#358) - header-only.
+add_executable(test_tournament
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tournament.cpp
+)
+
 # First-person tour camera (Milestone 15 / #165) - header-only.
 add_executable(test_tour_camera
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tour_camera.cpp
@@ -1257,6 +1262,7 @@ set(HEADLESS_TESTS
     test_tonemap_chain
     test_topology
     test_tour_camera
+    test_tournament
     test_tower_defense
     test_tutorial
     test_ui_scaling
