@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/Fairness.h"       // checkLevelFairness, FairnessResult (#334)
 #include "game/Leaderboard.h"    // Leaderboard, RunTrace, ScoreEntry, SubmitResult, replay verification
 #include "game/LevelCatalog.h"   // LevelCatalog, LevelEntry, weeklyPrompt
 #include "game/LevelShare.h"     // shareCodeFor (content code that keys a board)
@@ -109,6 +110,19 @@ public:
     /// The content code that keys a week's board (the featured level's share code).
     static std::string challengeLevelCode(const LevelEntry& level) {
         return shareCodeFor(level.levelJson);
+    }
+
+    /// Solver-backed fairness of the week-of-@p now's featured level (#334), so a caller
+    /// can gate selection on a clearable level. "no featured level" when the catalog is
+    /// empty.
+    FairnessResult featuredFairness(const LevelCatalog& catalog, std::int64_t now) const {
+        const WeeklyChallengeInfo info = current(catalog, now);
+        if (!info.valid) {
+            FairnessResult r;
+            r.reason = "no featured level";
+            return r;
+        }
+        return checkLevelFairness(info.level.levelJson);
     }
 
     /**
