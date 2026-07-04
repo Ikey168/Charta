@@ -782,6 +782,11 @@ add_executable(test_leaderboard
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_leaderboard.cpp
 )
 
+# Solver-backed fairness gate for leaderboard/weekly-challenge submissions (#334) - header-only.
+add_executable(test_fairness_gate
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fairness_gate.cpp
+)
+
 # Shareable ghost replays: content-verified trace codec + deterministic playback
 # alongside a live run, bound to the level (#272) - header-only.
 add_executable(test_ghost_replay
@@ -1069,6 +1074,7 @@ set(HEADLESS_TESTS
     test_ecs_systems
     test_enemy_behaviors
     test_entity_inspector
+    test_fairness_gate
     test_file_watcher
     test_frame_graph
     test_geojson_importer

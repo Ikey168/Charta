@@ -2,6 +2,7 @@
 
 #include "game/DoodleScene.h"  // convert, SceneDescription
 #include "game/DungeonGame.h"  // DungeonGame, GameInput, loadGame
+#include "game/Fairness.h"     // checkLevelFairness (opt-in solvability gate, #334)
 #include "game/LevelFormat.h"  // fromLevelJson, LevelSpec
 #include "game/LevelShare.h"   // shareCodeFor
 
@@ -93,13 +94,36 @@ struct SubmitResult {
 /// Per-level fastest-clear leaderboards with re-simulation verification.
 class Leaderboard {
 public:
-    explicit Leaderboard(double fixedDt = 1.0 / 60.0) : m_fixedDt(fixedDt) {}
+    /// @param enforceFairness when true, registerLevel refuses an unsolvable level and
+    ///        records its solver par (#334). Off by default, so existing behavior is
+    ///        unchanged.
+    explicit Leaderboard(double fixedDt = 1.0 / 60.0, bool enforceFairness = false)
+        : m_fixedDt(fixedDt), m_enforceFairness(enforceFairness) {}
 
-    /// Register a level for competition; returns its content share code.
+    /// Register a level for competition; returns its content share code. When fairness is
+    /// enforced, an unsolvable level is refused (returns "", with lastRegisterReason set)
+    /// and a fair level's par is recorded (parFor()).
     std::string registerLevel(const std::string& levelJson) {
         const std::string code = shareCodeFor(levelJson);
+        if (m_enforceFairness) {
+            const FairnessResult f = checkLevelFairness(levelJson);
+            if (!f.fair) {
+                m_lastRegisterReason = f.reason;
+                return "";
+            }
+            m_par[code] = f.par;
+        }
         m_levels[code] = levelJson;
         return code;
+    }
+
+    bool fairnessEnforced() const { return m_enforceFairness; }
+    /// Reason the last registerLevel rejected a level ("" if it succeeded).
+    const std::string& lastRegisterReason() const { return m_lastRegisterReason; }
+    /// The solver par recorded for a fair, registered level (-1 if unknown).
+    int parFor(const std::string& code) const {
+        auto it = m_par.find(code);
+        return it == m_par.end() ? -1 : it->second;
     }
     bool hasLevel(const std::string& code) const { return m_levels.count(code) > 0; }
     double fixedDt() const { return m_fixedDt; }
@@ -224,6 +248,9 @@ private:
 
     static const std::size_t kMaxInputs = 1000000;
     double m_fixedDt;
+    bool m_enforceFairness{false};
+    std::string m_lastRegisterReason;
+    std::unordered_map<std::string, int> m_par; ///< solver par per fair level (when enforced).
     std::unordered_map<std::string, std::string> m_levels;
     std::unordered_map<std::string, std::vector<ScoreEntry>> m_scores;
     // Best trace per (level, player) for ghost replays (issue #272). Kept in step with
