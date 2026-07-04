@@ -31,8 +31,8 @@ jobs:
   package:
     name: Package - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # macOS packaging is informational until the clang-21 toolchain restore (#338 / #366).
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    # All platforms package as a required step now that the clang-21 toolchain is restored
+    # (#366 / #338): macOS builds the full engine, so its package is no longer informational.
     strategy:
       fail-fast: false
       matrix:

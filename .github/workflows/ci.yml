@@ -13,12 +13,10 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # macOS is informational for now: its runner ships a bleeding-edge toolchain
-    # (Xcode 26 / clang 21) that several pinned vendored deps predate - after the assimp
-    # fixes it still fails compiling sol2 v3.3.0's bundled optional, with more old deps
-    # likely behind it. Linux and Windows compile the full engine and stay required; the
-    # macOS clang-21 dependency work is tracked in #338 so it does not red-flag PRs.
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    # macOS is a required gate again (#366): the clang-21 blocker was the assimp workarounds
+    # plus sol2 v3.3.0's bundled optional<T&>, patched at configure time in CMakeLists, so the
+    # runner (Xcode 26 / clang 21) now compiles the full engine. All three platforms are
+    # required; #338 is resolved.
     strategy:
       fail-fast: false
       matrix:
