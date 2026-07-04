@@ -863,6 +863,18 @@ add_executable(test_spectator_ui
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_ui.cpp
 )
 
+# Replay scrubber input controls + spectator HUD draw-list resolution (#352) - header-only.
+add_executable(test_spectator_controls
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_controls.cpp
+)
+
+# GL render of the spectator HUD (scrubber bar + panels) offscreen (#352). Links glad/glfw/
+# glm and needs a GL context, so it is a gl-labelled test (run under Xvfb + software GL).
+add_executable(test_spectator_hud_gl
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_hud_gl.cpp
+)
+target_link_libraries(test_spectator_hud_gl PRIVATE glad glfw glm::glm)
+
 # Audio decode core: robust WAV/PCM parser + tone generator (#258) - header-only.
 add_executable(test_audio_decode
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_audio_decode.cpp
@@ -1173,6 +1185,7 @@ set(HEADLESS_TESTS
     test_skinned_shadow
     test_skinning
     test_solver
+    test_spectator_controls
     test_spectator_ui
     test_ssao_kernel
     test_star_rating
@@ -1244,6 +1257,7 @@ set(GL_TESTS
     test_scene_graph
     test_scripting
     test_skinned_animation
+    test_spectator_hud_gl
 )
 
 set(_present_gl_tests "")
