@@ -712,6 +712,11 @@ add_executable(test_city_game
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_game.cpp
 )
 
+# Richer OSM import: region kinds, POIs, barriers -> hazards/walls/coins (#365) - header-only.
+add_executable(test_city_osm_rich
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_city_osm_rich.cpp
+)
+
 # Deterministic solvability validator + auto-solver over DungeonGame rules (#316) - header-only.
 add_executable(test_solver
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_solver.cpp
@@ -1208,6 +1213,7 @@ set(HEADLESS_TESTS
     test_benchmark
     test_campaign
     test_city_game
+    test_city_osm_rich
     test_coop_shared_world
     test_crowd
     test_cv_robust
