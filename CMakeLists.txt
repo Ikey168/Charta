@@ -904,6 +904,11 @@ add_executable(test_versus_ffa
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versus_ffa.cpp
 )
 
+# Deterministic Solver-oracle AI opponent -> input stream for Versus/FFA (#357) - header-only.
+add_executable(test_ai_opponent
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ai_opponent.cpp
+)
+
 # FFA standings HUD + spectator replay scrubber over the HUD framework (#335) - header-only.
 add_executable(test_spectator_ui
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_ui.cpp
@@ -1160,6 +1165,7 @@ install(TARGETS IKore RUNTIME DESTINATION bin)
 # ---------------------------------------------------------------------------
 set(HEADLESS_TESTS
     test_actor_anim
+    test_ai_opponent
     test_app_shell
     test_archetype_ecs
     test_audio_decode
