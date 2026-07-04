@@ -916,6 +916,11 @@ add_executable(test_level_share
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_share.cpp
 )
 
+# Launch content: campaign levels, fairness-validated manifest, weekly rotation (#371) - header-only.
+add_executable(test_launch_content
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_launch_content.cpp
+)
+
 # UGC Phase 5: fastest-clear leaderboards with replay anti-cheat (Milestone 17 /
 # #242) - header-only.
 add_executable(test_leaderboard
@@ -1296,6 +1301,7 @@ set(HEADLESS_TESTS
     test_ibl_brdf
     test_input_map
     test_input_mapping
+    test_launch_content
     test_leaderboard
     test_level_autorepair
     test_level_catalog
