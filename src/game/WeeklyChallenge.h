@@ -56,10 +56,12 @@ public:
      * @param epoch          Timestamp of week 0's start (the rotation anchor).
      * @param fixedDt        Fixed timestep the per-week boards verify against (#242).
      */
+    /// @param enforceFairness when true, per-week boards enforce solvability and record par,
+    ///        so submissions are star-rated (#346). Off by default (behavior unchanged).
     explicit WeeklyChallenge(std::int64_t secondsPerWeek = kSecondsPerWeek, std::int64_t epoch = 0,
-                             double fixedDt = 1.0 / 60.0)
+                             double fixedDt = 1.0 / 60.0, bool enforceFairness = false)
         : m_secondsPerWeek(secondsPerWeek > 0 ? secondsPerWeek : kSecondsPerWeek),
-          m_epoch(epoch), m_fixedDt(fixedDt) {}
+          m_epoch(epoch), m_fixedDt(fixedDt), m_enforceFairness(enforceFairness) {}
 
     /// Week index for @p now (floored; can be negative before the epoch).
     int weekIndexAt(std::int64_t now) const {
@@ -141,7 +143,8 @@ public:
             res.reason = "no featured level";
             return res;
         }
-        Leaderboard& board = m_boards.emplace(info.weekIndex, Leaderboard(m_fixedDt)).first->second;
+        Leaderboard& board =
+            m_boards.emplace(info.weekIndex, Leaderboard(m_fixedDt, m_enforceFairness)).first->second;
         const std::string code = board.registerLevel(info.level.levelJson); // idempotent (content code)
         m_weekCode[info.weekIndex] = code;
         return board.submit(code, player, trace, submittedAt, claimedTime);
@@ -174,6 +177,7 @@ private:
     std::int64_t m_secondsPerWeek;
     std::int64_t m_epoch;
     double m_fixedDt;
+    bool m_enforceFairness{false};                   ///< per-week boards record par + rate stars (#346).
     std::unordered_map<int, Leaderboard> m_boards;   ///< per-week competition boards.
     std::unordered_map<int, std::string> m_weekCode; ///< week index -> featured level code.
 };

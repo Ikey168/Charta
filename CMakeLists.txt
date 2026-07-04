@@ -809,6 +809,11 @@ add_executable(test_leaderboard
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_leaderboard.cpp
 )
 
+# Par-based 1-3 star ratings on leaderboard + weekly submissions (#346) - header-only.
+add_executable(test_star_rating
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_star_rating.cpp
+)
+
 # Solver-backed fairness gate for leaderboard/weekly-challenge submissions (#334) - header-only.
 add_executable(test_fairness_gate
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fairness_gate.cpp
@@ -1153,6 +1158,7 @@ set(HEADLESS_TESTS
     test_solver
     test_spectator_ui
     test_ssao_kernel
+    test_star_rating
     test_svg_floorplan
     test_symbol_recognizer
     test_symbol_spawns
