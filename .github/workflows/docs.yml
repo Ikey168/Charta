@@ -76,6 +76,35 @@ jobs:
           fi
         done
 
+    - name: Check the launch guides exist
+      run: |
+        echo "📚 Checking the top-level guides (#377)..."
+        for f in docs/PLAYER_GUIDE.md docs/DEVELOPER_ADD_A_MECHANIC.md docs/ARCHITECTURE.md; do
+          if [ -f "$f" ]; then echo "✅ $f"; else echo "❌ missing $f"; exit 1; fi
+        done
+
+    - name: Check internal doc links resolve
+      run: |
+        echo "🔗 Checking relative markdown links in README + docs/ ..."
+        rm -f /tmp/broken_links
+        for f in README.md docs/*.md; do
+          [ -f "$f" ] || continue
+          dir=$(dirname "$f")
+          grep -oE '\]\(([^)]+)\)' "$f" | sed -E 's/^\]\(//; s/\)$//' | while read -r target; do
+            case "$target" in http*|mailto:*|\#*) continue ;; esac
+            path="${target%%#*}"
+            [ -z "$path" ] && continue
+            if [ ! -e "$dir/$path" ]; then
+              echo "❌ $f: broken link -> $target"
+              echo broken >> /tmp/broken_links
+            fi
+          done
+        done
+        if [ -f /tmp/broken_links ]; then
+          echo "Broken internal links found."; exit 1
+        fi
+        echo "✅ all internal links resolve"
+
   spellcheck:
     name: Spell Check
     runs-on: ubuntu-latest
