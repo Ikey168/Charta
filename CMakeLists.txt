@@ -17,7 +17,13 @@ if(POLICY CMP0072)
     cmake_policy(SET CMP0072 NEW)
 endif()
 
-project(IKoreEngine LANGUAGES C CXX)
+project(IKoreEngine VERSION 1.0.0 LANGUAGES C CXX)
+
+# Release version for packaging (#369): defaults to the project version, overridable from CI
+# with -DIKORE_RELEASE_VERSION=<tag> so a tagged build stamps its real version.
+if(NOT DEFINED IKORE_RELEASE_VERSION)
+    set(IKORE_RELEASE_VERSION "${PROJECT_VERSION}")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -1204,7 +1210,7 @@ if (APPLE)
     target_link_libraries(IKore PRIVATE "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
 endif()
 
-install(TARGETS IKore RUNTIME DESTINATION bin)
+install(TARGETS IKore RUNTIME DESTINATION bin COMPONENT ikore_runtime)
 
 # ---------------------------------------------------------------------------
 # Headless unit-test gate (issue: wire the test suite into CI as a PR check).
@@ -1422,3 +1428,44 @@ if(TARGET render_skinned_golden)
     set_tests_properties(test_skinned_golden PROPERTIES LABELS gl WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     add_dependencies(gl_tests render_skinned_golden)
 endif()
+
+# ---------------------------------------------------------------------------
+# Release packaging (CPack) - per-platform installable artifacts (#369).
+#
+# The main executable is already installed to bin/ (above); ship the runtime assets
+# alongside it so the package is self-contained, then let CPack roll it into a per-platform
+# archive (ZIP on Windows, tar.gz elsewhere). The release workflow builds Release, runs
+# `cpack`, and attaches the result to a GitHub Release. Adding this only defines the
+# packaging targets/variables at configure time; it does not affect a normal build or the
+# test gates.
+#
+# Packaging must not rebuild the whole test suite: the install/preinstall target only needs
+# the installed target (IKore) up to date, so a CPack run after `--target IKore` is fast and
+# is not tripped by an unrelated target. The release job builds IKore, then runs cpack.
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY TRUE)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION bin COMPONENT ikore_runtime)
+endif()
+
+# Package only our runtime component. The vendored FetchContent deps (bullet, glfw, assimp,
+# ...) register their own install rules for static libs and headers we do not ship and that
+# a game build does not produce; scoping CPack to ikore_runtime keeps the package to just the
+# executable + assets and avoids trying to install unbuilt dependency artifacts.
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL ikore_runtime)
+set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+set(CPACK_PACKAGE_NAME "IKoreEngine")
+set(CPACK_PACKAGE_VENDOR "IKore")
+set(CPACK_PACKAGE_VERSION "${IKORE_RELEASE_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Doodlebound - draw a level, then play it")
+set(CPACK_PACKAGE_FILE_NAME "IKoreEngine-${IKORE_RELEASE_VERSION}-${CMAKE_SYSTEM_NAME}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "IKoreEngine")
+set(CPACK_STRIP_FILES ON)
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+include(CPack)
