@@ -846,6 +846,11 @@ add_executable(test_symbol_recognizer
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_symbol_recognizer.cpp
 )
 
+# Solver-guided auto-repair of unsolvable captured levels (#362) - header-only.
+add_executable(test_level_autorepair
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_autorepair.cpp
+)
+
 # UGC catalog: share codes, feed, stars (Milestone 17 / #174) - header-only.
 add_executable(test_level_catalog
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_catalog.cpp
@@ -1230,6 +1235,7 @@ set(HEADLESS_TESTS
     test_ibl_brdf
     test_input_map
     test_leaderboard
+    test_level_autorepair
     test_level_catalog
     test_level_format
     test_level_gen
