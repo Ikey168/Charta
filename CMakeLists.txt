@@ -663,6 +663,18 @@ add_executable(test_dungeon_runtime
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_runtime.cpp
 )
 
+# Render-list builder for a live DungeonRuntime (statics + ECS actors) (#333) - header-only.
+add_executable(test_dungeon_render_data
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_render_data.cpp
+)
+
+# GL render pass that draws the DungeonRuntime draw list offscreen (#333). Links glad/glfw/
+# glm and needs a GL context, so it is a gl-labelled test (run under Xvfb + software GL).
+add_executable(test_dungeon_render_gl
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dungeon_render_gl.cpp
+)
+target_link_libraries(test_dungeon_render_gl PRIVATE glad glfw glm::glm)
+
 # Selectable enemy behaviors: patrol / flee / ranged, default chase (#320) - header-only.
 add_executable(test_enemy_behaviors
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_enemy_behaviors.cpp
@@ -1068,6 +1080,7 @@ set(HEADLESS_TESTS
     test_doodle_scene
     test_dungeon_features
     test_dungeon_game
+    test_dungeon_render_data
     test_dungeon_runtime
     test_ecs_benchmark
     test_ecs_query
@@ -1168,6 +1181,7 @@ set(GL_TESTS
     test_animation_blend
     test_animation_component
     test_audio_compressed
+    test_dungeon_render_gl
     test_event_system
     test_event_system_simple
     test_material_component
