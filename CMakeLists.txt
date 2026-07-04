@@ -786,6 +786,11 @@ add_executable(test_app_shell
 )
 target_link_libraries(test_app_shell PRIVATE doodle)
 
+# Gameplay-state -> animation clip + crossfade decision layer (#351) - header-only.
+add_executable(test_actor_anim
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_actor_anim.cpp
+)
+
 # On-device symbol ML classifier (Milestone 17 / #173) - header-only inference.
 add_executable(test_glyph_net
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_glyph_net.cpp
@@ -1101,6 +1106,7 @@ install(TARGETS IKore RUNTIME DESTINATION bin)
 # or device). When adding a new headless test, add its target name here.
 # ---------------------------------------------------------------------------
 set(HEADLESS_TESTS
+    test_actor_anim
     test_app_shell
     test_archetype_ecs
     test_audio_decode
