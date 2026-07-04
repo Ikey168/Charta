@@ -924,6 +924,11 @@ add_executable(test_spectator_controls
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_controls.cpp
 )
 
+# Spectator lobby: list live/finished sessions + route to standings/replay (#359) - header-only.
+add_executable(test_spectator_lobby
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_spectator_lobby.cpp
+)
+
 # GL render of the spectator HUD (scrubber bar + panels) offscreen (#352). Links glad/glfw/
 # glm and needs a GL context, so it is a gl-labelled test (run under Xvfb + software GL).
 add_executable(test_spectator_hud_gl
@@ -1248,6 +1253,7 @@ set(HEADLESS_TESTS
     test_skinning
     test_solver
     test_spectator_controls
+    test_spectator_lobby
     test_spectator_ui
     test_ssao_kernel
     test_star_rating
