@@ -5,6 +5,7 @@
 #include "game/Fairness.h"     // checkLevelFairness (opt-in solvability gate, #334)
 #include "game/LevelFormat.h"  // fromLevelJson, LevelSpec
 #include "game/LevelShare.h"   // shareCodeFor
+#include "game/StarRating.h"   // StarConfig, starsForClear (#346)
 
 #include <algorithm>
 #include <cmath>
@@ -80,6 +81,7 @@ struct ScoreEntry {
     double clearTime{0.0};
     int steps{0};
     std::int64_t submittedAt{0};
+    int stars{0}; ///< 1-3 stars of this best run vs par, 0 if par unknown (#346).
 };
 
 /// Result of a submission attempt.
@@ -88,6 +90,7 @@ struct SubmitResult {
     bool improved{false};  ///< it was the player's first or a new personal best.
     double clearTime{0.0};
     int rank{0};           ///< 1-based rank after this submission (0 if not accepted).
+    int stars{0};          ///< 1-3 stars earned by this run vs par, 0 if par unknown (#346).
     std::string reason;    ///< why an unaccepted run was rejected.
 };
 
@@ -128,6 +131,10 @@ public:
     bool hasLevel(const std::string& code) const { return m_levels.count(code) > 0; }
     double fixedDt() const { return m_fixedDt; }
 
+    /// Tune the star-rating thresholds/constants applied at submit time (#346).
+    void setStarConfig(const StarConfig& cfg) { m_starCfg = cfg; }
+    const StarConfig& starConfig() const { return m_starCfg; }
+
     /**
      * @brief Submit a run for @p player on level @p code.
      *
@@ -164,18 +171,23 @@ public:
 
         res.accepted = true;
         res.clearTime = rr.clearTime;
+        // Star rating vs the recorded solver par (#346). Par is only known when fairness is
+        // enforced; without it stars stay 0 (rankings are unchanged either way).
+        const int par = parFor(code);
+        res.stars = par > 0 ? starsForClear(rr.clearTime, par, m_starCfg) : 0;
         std::vector<ScoreEntry>& board = m_scores[code];
         ScoreEntry* existing = nullptr;
         for (ScoreEntry& e : board) {
             if (e.player == player) { existing = &e; break; }
         }
         if (existing == nullptr) {
-            board.push_back(ScoreEntry{player, rr.clearTime, rr.steps, submittedAt});
+            board.push_back(ScoreEntry{player, rr.clearTime, rr.steps, submittedAt, res.stars});
             res.improved = true;
         } else if (rr.clearTime < existing->clearTime) {
             existing->clearTime = rr.clearTime;
             existing->steps = rr.steps;
             existing->submittedAt = submittedAt;
+            existing->stars = res.stars;
             res.improved = true;
         }
         // Keep the winning trace so a rank's ghost can be fetched later (issue #272).
@@ -248,6 +260,7 @@ private:
 
     static const std::size_t kMaxInputs = 1000000;
     double m_fixedDt;
+    StarConfig m_starCfg{}; ///< star-rating tunables applied at submit time (#346).
     bool m_enforceFairness{false};
     std::string m_lastRegisterReason;
     std::unordered_map<std::string, int> m_par; ///< solver par per fair level (when enforced).
