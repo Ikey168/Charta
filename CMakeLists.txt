@@ -748,6 +748,11 @@ add_executable(test_tournament
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tournament.cpp
 )
 
+# Mobile touch controls + GLES render-path selection (#367) - header-only.
+add_executable(test_touch_controls
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_touch_controls.cpp
+)
+
 # First-person tour camera (Milestone 15 / #165) - header-only.
 add_executable(test_tour_camera
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tour_camera.cpp
@@ -1315,6 +1320,7 @@ set(HEADLESS_TESTS
     test_tone_mapping
     test_tonemap_chain
     test_topology
+    test_touch_controls
     test_tour_camera
     test_tournament
     test_tower_defense
