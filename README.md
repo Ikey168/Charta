@@ -1,8 +1,9 @@
 # Charta
 
-[![CI/CD Pipeline](https://github.com/Ikey168/IKore-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Ikey168/IKore-Engine/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Ikey168/IKore-Engine/actions/workflows/analysis.yml/badge.svg)](https://github.com/Ikey168/IKore-Engine/actions/workflows/analysis.yml)
-[![Documentation](https://github.com/Ikey168/IKore-Engine/actions/workflows/docs.yml/badge.svg)](https://github.com/Ikey168/IKore-Engine/actions/workflows/docs.yml)
+[![Release](https://img.shields.io/github/v/release/Ikey168/Charta)](https://github.com/Ikey168/Charta/releases/latest)
+[![CI/CD Pipeline](https://github.com/Ikey168/Charta/actions/workflows/ci.yml/badge.svg)](https://github.com/Ikey168/Charta/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Ikey168/Charta/actions/workflows/analysis.yml/badge.svg)](https://github.com/Ikey168/Charta/actions/workflows/analysis.yml)
+[![Documentation](https://github.com/Ikey168/Charta/actions/workflows/docs.yml/badge.svg)](https://github.com/Ikey168/Charta/actions/workflows/docs.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > **From paper to playable: an engine that turns drawings, floor plans, and map

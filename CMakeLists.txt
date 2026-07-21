@@ -24,7 +24,7 @@ project(IKoreEngine VERSION 1.0.0 LANGUAGES C CXX)
 # and is overridable from CI with -DIKORE_RELEASE_VERSION=<tag> so a tagged build stamps its
 # real version. project(VERSION ...) above holds the numeric components.
 if(NOT DEFINED IKORE_RELEASE_VERSION)
-    set(IKORE_RELEASE_VERSION "1.0.0-rc.1")
+    set(IKORE_RELEASE_VERSION "1.0.0")
 endif()
 
 # Generate the version header consumed by the engine / about screen, packaging, and the

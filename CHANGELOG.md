@@ -6,10 +6,12 @@ All notable changes to Doodlebound (the IKore engine) are recorded here. The for
 version is `project(IKoreEngine VERSION ...)` / `IKORE_RELEASE_VERSION` in `CMakeLists.txt`,
 surfaced to code through the generated `ikore/Version.h`.
 
-## [1.0.0-rc.1] - Release candidate
+## [1.0.0] - 2026-07-21
 
-The 1.0 release candidate: the capture-to-play engine, multiplayer, the content pipeline, and
-the platform/ship work are feature-complete and stabilizing under a bug-fix-only freeze.
+The 1.0 release: the capture-to-play engine, multiplayer, the content pipeline, and the
+platform/ship work are feature-complete. Everything below stabilized through the
+`1.0.0-rc.1` bug-fix-only freeze and ships unchanged in 1.0.0, plus the release-window
+fixes recorded under "Fixed".
 
 ### Added
 
@@ -40,5 +42,9 @@ the platform/ship work are feature-complete and stabilizing under a bug-fix-only
 ### Fixed
 
 - macOS builds of the scripting layer under Xcode 26 / clang 21 (sol2 `optional<T&>::emplace`).
+- The `docs.yml` documentation gate: the workflow file was invalid YAML (an unindented
+  heredoc) and had failed at startup on every run since it landed, so the #377 doc checks
+  never executed. The link checker also now skips fenced code blocks so C++ lambdas in the
+  implementation notes are not misread as markdown links (#415).
 
-[1.0.0-rc.1]: https://github.com/Ikey168/IKore-Engine/releases
+[1.0.0]: https://github.com/Ikey168/Charta/releases/tag/v1.0.0

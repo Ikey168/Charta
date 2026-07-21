@@ -9,7 +9,8 @@ name: Release
 # - workflow_dispatch -> manual build+package (optionally publishing to a named tag).
 #
 # Signing is driven by CI secrets and degrades cleanly to an unsigned build when they are
-# absent (forks, dry runs). macOS is gated on the #338 toolchain restore and is informational.
+# absent (forks, dry runs). macOS packages as a required step since the #338/#366 toolchain
+# restore; the pre-1.0 dry-run evidence is recorded in docs/RELEASE_SIGNOFF_1.0.md (#378).
 
 on:
   push:

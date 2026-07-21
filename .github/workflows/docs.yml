@@ -3,14 +3,17 @@ name: Documentation
 on:
   push:
     branches: [ main ]
-    paths: 
+    paths:
       - '**.md'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
     paths:
       - '**.md'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
 
 jobs:
   docs-check:
@@ -29,7 +32,7 @@ jobs:
           echo "✅ README.md exists"
           
           # Check if README has essential sections
-          if grep -qi "# IKore Engine" README.md; then
+          if grep -qi "# Charta\|# IKore Engine" README.md; then
             echo "✅ Project title found"
           else
             echo "⚠️  Project title not found in README"
@@ -90,8 +93,11 @@ jobs:
         for f in README.md docs/*.md; do
           [ -f "$f" ] || continue
           dir=$(dirname "$f")
-          grep -oE '\]\(([^)]+)\)' "$f" | sed -E 's/^\]\(//; s/\)$//' | while read -r target; do
-            case "$target" in http*|mailto:*|\#*) continue ;; esac
+          # Strip fenced code blocks first: C++ lambdas like [](std::shared_ptr<T> x)
+          # would otherwise be picked up as markdown links.
+          awk '/^[[:space:]]*```/ { fenced = !fenced; next } !fenced' "$f" \
+            | grep -oE '\]\(([^)]+)\)' | sed -E 's/^\]\(//; s/\)$//' | while read -r target; do
+            case "$target" in http*|mailto:*|\#*|*" "*) continue ;; esac
             path="${target%%#*}"
             [ -z "$path" ] && continue
             if [ ! -e "$dir/$path" ]; then
@@ -123,32 +129,13 @@ jobs:
         echo "📝 Running spell check on documentation..."
         
         # Create a simple word list for technical terms
-        cat > .aspell.en.pws << EOF
-personal_ws-1.1 en 30
-OpenGL
-GLFW
-CMake
-GitHub
-IKore
-vcpkg
-macOS
-Ubuntu
-workflow
-backends
-renderer
-API
-APIs
-enum
-namespace
-bool
-hpp
-cpp
-inline
-const
-struct
-typedef
-templating
-EOF
+        {
+          echo "personal_ws-1.1 en 30"
+          printf '%s\n' \
+            OpenGL GLFW CMake GitHub IKore vcpkg macOS Ubuntu \
+            workflow backends renderer API APIs enum namespace bool \
+            hpp cpp inline const struct typedef templating
+        } > .aspell.en.pws
         
         find . -name "*.md" -not -path "./build/*" -not -path "./_deps/*" | while read md_file; do
           echo "Checking $md_file..."
