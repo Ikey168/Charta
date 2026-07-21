@@ -3,14 +3,17 @@ name: Documentation
 on:
   push:
     branches: [ main ]
-    paths: 
+    paths:
       - '**.md'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
     paths:
       - '**.md'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
 
 jobs:
   docs-check:
