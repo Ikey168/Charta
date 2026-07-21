@@ -21,7 +21,7 @@ below is from GitHub Actions runs on `main` and on the release PR
 | Performance gate | `perf.yml` | ✅ | n/a | n/a | budgets from #374 |
 | CodeQL / analysis | `analysis.yml` | ✅ | n/a | n/a | c-cpp, python, actions |
 | Documentation gate | `docs.yml` | ✅ | n/a | n/a | repaired in #415; guides + link check green |
-| Packaging (CPack) | `release.yml` | ✅ | ✅ | ✅ | build-only dispatch run on `main` (see below) |
+| Packaging (CPack) | `release.yml` | ✅ | ✅ | ✅ | PR dry-run on the release PR (see below) |
 
 ## `continue-on-error` audit
 
@@ -32,10 +32,10 @@ followed by an explicit fallback step. No **job** on any required workflow carri
 
 ## Packaged-artifact verification
 
-The `release.yml` pipeline (from #369) was exercised as a build-only `workflow_dispatch` on
-`main` ahead of tagging: all three platforms configured with the release version stamp,
-built the full `IKore` target in Release, and produced CPack artifacts (TGZ on Linux/macOS,
-ZIP on Windows). Signing degrades to unsigned automatically when the signing secrets are
+The `release.yml` pipeline (from #369) was exercised ahead of tagging via its PR dry-run
+path on the release PR (#415): all three platforms configured with the release version
+stamp, built the full `IKore` target in Release, and produced CPack artifacts (TGZ on
+Linux/macOS, ZIP on Windows) without publishing. Signing degrades to unsigned automatically when the signing secrets are
 absent; on the release tag the same pipeline signs when `MACOS_CERTIFICATE_P12` /
 `WINDOWS_CERTIFICATE_PFX` are configured.
 
