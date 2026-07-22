@@ -50,7 +50,7 @@ int main() {
     // 1. Numeric components are the 1.0.x line.
     CHECK(kMajor == 1);
     CHECK(kMinor == 0);
-    CHECK(kPatch == 0);
+    CHECK(kPatch == 1);
 
     // 2. The version string is well-formed semver and its numeric prefix matches the
     //    constants (single source of truth: string and numbers cannot drift).

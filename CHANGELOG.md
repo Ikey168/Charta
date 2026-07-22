@@ -6,6 +6,10 @@ All notable changes to Doodlebound (the IKore engine) are recorded here. The for
 version is `project(IKoreEngine VERSION ...)` / `IKORE_RELEASE_VERSION` in `CMakeLists.txt`,
 surfaced to code through the generated `ikore/Version.h`.
 
+## [Unreleased]
+
+Development on the 1.0.x line (`1.0.1-dev`). Nothing user-facing yet.
+
 ## [1.0.0] - 2026-07-21
 
 The 1.0 release: the capture-to-play engine, multiplayer, the content pipeline, and the
@@ -47,4 +51,5 @@ fixes recorded under "Fixed".
   never executed. The link checker also now skips fenced code blocks so C++ lambdas in the
   implementation notes are not misread as markdown links (#415).
 
+[Unreleased]: https://github.com/Ikey168/Charta/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/Ikey168/Charta/releases/tag/v1.0.0
