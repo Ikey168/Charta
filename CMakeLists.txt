@@ -17,14 +17,14 @@ if(POLICY CMP0072)
     cmake_policy(SET CMP0072 NEW)
 endif()
 
-project(IKoreEngine VERSION 1.0.0 LANGUAGES C CXX)
+project(IKoreEngine VERSION 1.0.1 LANGUAGES C CXX)
 
 # Release version for packaging (#369) and the single version source (#376). The full semver
 # string (including any -rc pre-release) defaults to the release-candidate for the 1.0 window
 # and is overridable from CI with -DIKORE_RELEASE_VERSION=<tag> so a tagged build stamps its
 # real version. project(VERSION ...) above holds the numeric components.
 if(NOT DEFINED IKORE_RELEASE_VERSION)
-    set(IKORE_RELEASE_VERSION "1.0.0")
+    set(IKORE_RELEASE_VERSION "1.0.1-dev")
 endif()
 
 # Generate the version header consumed by the engine / about screen, packaging, and the
