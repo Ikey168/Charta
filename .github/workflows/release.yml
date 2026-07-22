@@ -15,6 +15,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+    # Release-by-commit: a push to main that changes .github/release-request (a file whose
+    # sole content is the version, e.g. "v1.0.0") packages and publishes that version, with
+    # the tag created by the publish job. This is the path for release environments that can
+    # merge PRs but cannot push tags or dispatch workflows. Tags made with the workflow's
+    # own GITHUB_TOKEN do not re-trigger this workflow, so it cannot loop.
+    branches: [main]
+    paths: ['.github/release-request']
   pull_request:
     paths:
       - '.github/workflows/release.yml'
@@ -58,10 +65,13 @@ jobs:
           V="${{ github.ref_name }}"
         elif [ -n "${{ github.event.inputs.version }}" ]; then
           V="${{ github.event.inputs.version }}"
+        elif [ "${{ github.event_name }}" = "push" ] && [ -s .github/release-request ]; then
+          V="$(tr -d '[:space:]' < .github/release-request)"
         else
           V="0.0.0-dryrun"
         fi
         echo "version=${V#v}" >> "$GITHUB_OUTPUT"   # strip a leading v for the package version
+        echo "release_tag=${V}" >> "$GITHUB_OUTPUT" # full tag (empty/dryrun means build-only)
 
     - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -164,12 +174,14 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: package
-    # A tag push publishes, as does a workflow_dispatch that names a version (the manual
-    # publish path: gh release create makes the tag itself when it does not exist yet).
-    # A PR dry-run or a build-only dispatch stops after packaging.
+    # A tag push publishes, as does a workflow_dispatch that names a version and a push to
+    # main that changes .github/release-request (the manual publish paths: gh release create
+    # makes the tag itself when it does not exist yet). A PR dry-run or a build-only
+    # dispatch stops after packaging.
     if: >-
       startsWith(github.ref, 'refs/tags/') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.version != '')
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.version != '') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -196,8 +208,17 @@ jobs:
         fi
         if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
           TAG="${GITHUB_REF_NAME}"
-        else
+        elif [ -n "${DISPATCH_VERSION}" ]; then
           TAG="${DISPATCH_VERSION}"   # manual publish: the tag is created at GITHUB_SHA
+        elif [ -s .github/release-request ]; then
+          TAG="$(tr -d '[:space:]' < .github/release-request)"
+        else
+          echo "No version requested (.github/release-request is empty); build-only."
+          exit 0
+        fi
+        if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+          echo "Release ${TAG} already exists; not recreating."
+          exit 0
         fi
         echo "Attaching ${#files[@]} artifact(s) to ${TAG}: ${files[*]}"
         gh release create "${TAG}" "${files[@]}" \
