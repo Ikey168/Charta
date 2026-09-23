@@ -19,8 +19,9 @@ After the native pause and Android inset fixes (`97dfc24`), the connected suite 
 The added checks imported a valid level file through the app's result handler,
 played and saved it, rejected a malformed file without losing the save, and
 verified menus/backgrounding keep new or retried native levels paused. The
-[Preserved JUnit XML](android-api36-tests.xml) records 9 tests, 0 failures,
-0 errors, and 0 skipped. A full build and connected run succeeded in 6m 5s.
+[Preserved JUnit XML](android-api36-tests.xml) now records the latest 10-test
+run, with 0 failures, 0 errors, and 0 skipped. The earlier full build and
+9-test connected run succeeded in 6m 5s.
 
 After the system-bar color adjustment (`f891ee3`), `:app:assembleDebug`
 succeeded and a fresh launch/native play smoke passed on debug APK SHA-256
@@ -57,21 +58,35 @@ the GameActivity AppCompat back dispatcher and keeps the legacy activity
 fallback for older Android versions. On the API 36 emulator, the focused
 SystemBackRegressionTest sent GLOBAL_ACTION_BACK from Settings and confirmed
 the Home screen; it passed, and the full connected instrumentation suite passed
-10/10. A manual adb shell input keyevent 4 from Settings also returned Home.
-The emulator uses three-button navigation, so this did not test an edge swipe.
-QA still needs to verify the fresh signed build and its upgrade from v2; issue
-#429 remains open until that check is confirmed.
+10/10 in 114.884 seconds. A manual `adb shell input keyevent 4` from Settings
+also returned Home. The emulator uses three-button navigation, so this did not
+test an edge swipe. The [preserved JUnit XML](android-api36-tests.xml) is the
+record for this run.
+
+The signed v3 artifact built from source commit
+`f9b737741261a01b410b530c56f8450944821b7b` is
+`android/build/demo-artifacts/v3-f9b737741261/doodlebound-demo.apk`, SHA-256
+`d83786db9fc8a9d6752f7953137ed565336a3c813fa538f25dac593947ff2fb4`.
+Android reported version code 3, version name `0.1.2-demo`; the artifact
+verification passed for APK Signature Scheme v2, arm64-v8a and x86_64, and
+16 KB alignment. After setting Haptics Off in signed v2, `adb install -r`
+upgraded to signed v3 without uninstalling; after a cold relaunch Settings
+still showed **Haptics: Off**. The v3 launch completed in 3.12 seconds.
+System Back from Settings returned to Home, with `MainActivity` still resumed.
+The final app log check found no fatal exception or app ANR.
 
 Manual checks on the emulator confirmed fresh install and launch, sample
 conversion to review and native play, a visibly rendered curated First steps
 scene, camera permission denial with Draw/Choose Photo recovery, virtual
 Camera2 preview, and Cancel returning Home. The screenshots here show
-[native play](android-api36-first-steps.png),
+[signed v3 native play](android-api36-first-steps.png),
+[signed v3 Settings with Haptics Off](android-api36-settings-haptics-off.png),
 [camera denial](android-api36-camera-denied.png), and
 [virtual camera preview](android-api36-camera-preview.png). The camera images
-were captured against the first APK hash above; the native play image was
-recaptured against the final hash. The virtual preview depicts the emulator's
-synthetic scene and does not validate physical camera focus or photo quality.
+were captured against the v1 APK hash above; the native play and Settings
+images were captured against the signed v3 hash above. The virtual preview
+depicts the emulator's synthetic scene and does not validate physical camera
+focus or photo quality.
 
 No physical phone was connected. Thus touch feel, real camera capture, thermal and frame-pacing
 budgets, second-device sharing, and 16 KB runtime loading remain pending
