@@ -302,8 +302,8 @@ object DemoUi {
     private fun showPause() {
         screen = "pause"; NativeBridge.pause(activity.nativeHandle); activity.showMenu()
         content("Paused", "Your dungeon is waiting.") {
-            action("Resume") { NativeBridge.resume(activity.nativeHandle); screen = "play"; activity.showGame() }
-            action("Retry") { NativeBridge.restart(activity.nativeHandle); NativeBridge.resume(activity.nativeHandle); lastStatus = 0; lastCoins = 0; screen = "play"; activity.showGame() }
+            action("Resume") { screen = "play"; activity.showGame() }
+            action("Retry") { NativeBridge.restart(activity.nativeHandle); lastStatus = 0; lastCoins = 0; screen = "play"; activity.showGame() }
             action("Home") { clearCheckpoint(); showHome() }
         }
     }
