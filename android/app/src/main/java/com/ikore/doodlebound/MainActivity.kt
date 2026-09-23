@@ -24,6 +24,9 @@ class MainActivity : GameActivity() {
         private set
     var nativeHandle: Long = 0L
         private set
+    private var gameplayVisible = false
+    private var hostResumed = false
+    private var windowFocused = false
 
     // GameActivity normally supplies its own SurfaceView. Our GLSurfaceView is the one
     // graphics owner, so the GameActivity view is intentionally suppressed.
@@ -90,24 +93,30 @@ class MainActivity : GameActivity() {
     }
 
     fun showGame() {
+        gameplayVisible = true
         gameView.visibility = View.VISIBLE
+        if (hostResumed && windowFocused && nativeHandle != 0L) NativeBridge.resume(nativeHandle)
         DemoUi.showGame()
     }
 
     fun showMenu() {
+        gameplayVisible = false
+        if (nativeHandle != 0L) NativeBridge.pause(nativeHandle)
         DemoUi.showMenu()
     }
 
     override fun onResume() {
         super.onResume()
+        hostResumed = true
         if (::gameView.isInitialized) {
             gameView.onResume()
-            if (nativeHandle != 0L) NativeBridge.resume(nativeHandle)
+            if (nativeHandle != 0L && gameplayVisible && windowFocused) NativeBridge.resume(nativeHandle)
             DemoUi.onHostResume()
         }
     }
 
     override fun onPause() {
+        hostResumed = false
         if (::rootView.isInitialized) DemoUi.onHostPause()
         if (nativeHandle != 0L) NativeBridge.pause(nativeHandle)
         if (::gameView.isInitialized) {
@@ -120,8 +129,10 @@ class MainActivity : GameActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        windowFocused = hasFocus
         if (nativeHandle == 0L) return
-        if (hasFocus) NativeBridge.resume(nativeHandle) else NativeBridge.pause(nativeHandle)
+        if (hasFocus && hostResumed && gameplayVisible) NativeBridge.resume(nativeHandle)
+        else NativeBridge.pause(nativeHandle)
     }
 
     override fun onDestroy() {
