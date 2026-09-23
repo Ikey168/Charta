@@ -2,6 +2,7 @@ package com.ikore.doodlebound
 
 import android.accessibilityservice.AccessibilityService
 import android.os.Build
+import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
@@ -24,10 +25,19 @@ class SystemBackRegressionTest {
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                assertNotNull(findButton(activity.rootView, "Settings"))
-                findButton(activity.rootView, "Settings")!!.performClick()
-                assertNotNull(findViewWithText(activity.rootView, "Settings"))
+                val settings = findButton(activity.rootView, "Settings")
+                assertNotNull(settings)
+                assertTrue(settings!!.performClick())
+                assertNotNull(findButtonStartingWith(activity.rootView, "Haptics:"))
             }
+            instrumentation.waitForIdleSync()
+            val focusDeadline = SystemClock.elapsedRealtime() + 5_000
+            var windowFocused = false
+            while (!windowFocused && SystemClock.elapsedRealtime() < focusDeadline) {
+                scenario.onActivity { activity -> windowFocused = activity.hasWindowFocus() }
+                if (!windowFocused) SystemClock.sleep(50)
+            }
+            assertTrue("MainActivity did not regain window focus before Back", windowFocused)
 
             if (Build.VERSION.SDK_INT >= 33) {
                 assertTrue(instrumentation.uiAutomation.performGlobalAction(
@@ -37,11 +47,17 @@ class SystemBackRegressionTest {
             }
             instrumentation.waitForIdleSync()
 
-            scenario.onActivity { activity ->
-                // If Back fell through to Activity.finish(), ActivityScenario cannot
-                // reach this callback. "Play levels" is unique to the Home screen.
-                assertNotNull(findButton(activity.rootView, "Play levels"))
+            val homeDeadline = SystemClock.elapsedRealtime() + 5_000
+            var homeButtonVisible = false
+            var currentButtons = emptyList<String>()
+            while (!homeButtonVisible && SystemClock.elapsedRealtime() < homeDeadline) {
+                scenario.onActivity { activity ->
+                    currentButtons = buttonLabels(activity.rootView)
+                    homeButtonVisible = findButton(activity.rootView, "Play levels") != null
+                }
+                if (!homeButtonVisible) SystemClock.sleep(50)
             }
+            assertTrue("Back did not return to Home; visible buttons: $currentButtons", homeButtonVisible)
         }
     }
 
@@ -55,13 +71,23 @@ class SystemBackRegressionTest {
         return null
     }
 
-    private fun findViewWithText(root: View, label: String): View? {
-        if (root is android.widget.TextView && root.text.toString() == label) return root
+    private fun findButtonStartingWith(root: View, prefix: String): Button? {
+        if (root is Button && root.text.toString().startsWith(prefix)) return root
         if (root is ViewGroup) {
             for (index in 0 until root.childCount) {
-                findViewWithText(root.getChildAt(index), label)?.let { return it }
+                findButtonStartingWith(root.getChildAt(index), prefix)?.let { return it }
             }
         }
         return null
+    }
+
+    private fun buttonLabels(root: View): List<String> {
+        val labels = mutableListOf<String>()
+        fun collect(view: View) {
+            if (view is Button) labels += view.text.toString()
+            if (view is ViewGroup) for (index in 0 until view.childCount) collect(view.getChildAt(index))
+        }
+        collect(root)
+        return labels
     }
 }
