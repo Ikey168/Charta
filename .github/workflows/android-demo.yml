@@ -6,6 +6,7 @@ on:
       - 'android/**'
       - 'src/mobile/**'
       - 'src/doodle/**'
+      - 'src/cv/**'
       - 'src/game/**'
       - '.github/workflows/android-demo.yml'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'android/**'
       - 'src/mobile/**'
       - 'src/doodle/**'
+      - 'src/cv/**'
       - 'src/game/**'
       - '.github/workflows/android-demo.yml'
   workflow_dispatch:
