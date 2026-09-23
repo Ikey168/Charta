@@ -14,6 +14,9 @@ target_include_directories(doodlebound PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/../../../../../src
 )
 target_compile_options(doodlebound PRIVATE -Wall -Wextra -Wpedantic)
+# Keep symbols in the CMake release output for the handoff archive. Gradle
+# strips the copy packaged into the APK independently.
+target_compile_options(doodlebound PRIVATE "$<$<CONFIG:Release>:-g>")
 # JNI entry points in the GameActivity prefab archive are looked up by the VM,
 # so the linker needs an explicit undefined symbol to retain that object.
 target_link_options(doodlebound PRIVATE "-Wl,-u,Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
