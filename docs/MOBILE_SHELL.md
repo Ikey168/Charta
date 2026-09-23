@@ -1,5 +1,12 @@
 # Mobile shell (Android/GLES) - status and plan
 
+The current implementation plan is the [complete Android demo plan](ANDROID_DEMO_PLAN.md),
+with [milestones and issues](ANDROID_DEMO_BACKLOG.md) and
+[physical-device acceptance gates](ANDROID_DEMO_ACCEPTANCE.md). It decomposes #419's mobile
+productization work. The proposed GameActivity host supersedes the tentative NativeActivity
+event adapter below; the portable-core status remains unchanged. No runnable Android APK or
+physical-phone sign-off is claimed by this document.
+
 Issue #367 delivers the mobile game on the portable doodle library (#171) behind the thin
 `AppShell` host (#172). This document records what is in-tree now (the portable, headless
 core) and what remains platform-specific (the device shell), so the boundary stays clean.
