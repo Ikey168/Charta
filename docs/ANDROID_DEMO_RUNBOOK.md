@@ -45,6 +45,11 @@ checksums under `android/build/demo-artifacts/`. It refuses to overwrite an exis
 artifact directory. Archive the keystore separately under an accountable owner; the
 artifact package intentionally excludes it.
 
+To update an installed demo, keep the same signing certificate, increment
+`DOODLEBOUND_VERSION_CODE`, and run `adb install -r` with the new signed APK.
+An uninstall removes the app's private saved levels, drafts and settings; export any
+levels you want to keep first, then run `adb uninstall com.ikore.doodlebound`.
+
 ## Quick operator path
 
 1. Launch Doodlebound with the phone offline. Start a bundled level and use touch controls
@@ -58,6 +63,19 @@ artifact package intentionally excludes it.
 4. Play the created level, save it, and share/import it on a second phone using a local
    transport. The share payload is self-contained; do not assume a backend resolves a short
    code. Treat source photos as private unless explicitly exporting a comparison image.
+
+During play, drag on the movement side of the screen to walk; the other side is used to
+look around in Tour. The movement side can be switched in Settings. Use the HUD's Pause
+button to resume, retry or return home, and Tour/Return to inspect the dungeon. Collect
+every coin before entering the blue exit. The library's level menu offers Play, Edit,
+Duplicate, Share level, Compare paper and game, and Delete.
+
+For offline sharing, open **My dungeons → a level → Share level** and choose a local
+transport such as nearby transfer or a file app. Small levels are sent as `DDL1:` text;
+larger ones as a `.ddl` file. On the receiving phone choose **Paste a level** for the text
+or **Import level file** for the file, then review and play. The level payload omits the
+source photo. **Compare paper and game** asks separately before creating an image that
+includes the photo.
 
 For the full demo, use the numbered [demonstration script](ANDROID_DEMO_ACCEPTANCE.md).
 Capture the actual behavior and any deviation; a route that is missing in the current build
