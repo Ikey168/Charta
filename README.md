@@ -33,6 +33,15 @@ The full thesis and roadmap are in
 [`PHONE_GAME_CONCEPT.md`](PHONE_GAME_CONCEPT.md) and
 [`PHONE_GAME_DESIGN.md`](PHONE_GAME_DESIGN.md).
 
+The complete Android phone demo is planned in
+[Android demo plan](docs/ANDROID_DEMO_PLAN.md), with a
+[milestone and issue backlog](docs/ANDROID_DEMO_BACKLOG.md) and
+[device acceptance checklist](docs/ANDROID_DEMO_ACCEPTANCE.md).
+The [Android build and operator guide](docs/ANDROID_DEMO_RUNBOOK.md) describes the
+source build, sample sheet and evidence capture.
+The Android source now builds a debug APK for arm64 and x86_64; physical-device
+verification and final demo sign-off remain open.
+
 ---
 
 ## Feature matrix

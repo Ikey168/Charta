@@ -69,6 +69,7 @@ static void testSceneAndJsonFacade() {
     const std::string json = doodle::saveLevel(spec);
     doodle::LevelSpec reloaded;
     CHECK(doodle::loadLevel(json, reloaded));
+    CHECK(!doodle::loadLevel(json + " trailing data", reloaded));
     CHECK(reloaded.walls.size() == spec.walls.size());
     CHECK(reloaded.symbols.size() == spec.symbols.size());
     CHECK(doodle::buildScene(reloaded).spawns.size() == 2);

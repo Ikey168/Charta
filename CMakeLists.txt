@@ -875,6 +875,11 @@ add_executable(test_doodle_library
 )
 target_link_libraries(test_doodle_library PRIVATE doodle)
 
+add_executable(test_doodle_phone_sheet
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doodle_phone_sheet.cpp
+)
+target_link_libraries(test_doodle_phone_sheet PRIVATE doodle)
+
 # Mobile app shell (Milestone 17 / #172): platform-agnostic draw->snap->play->share
 # loop over the doodle library. Header-only; the GLES/native layer wraps it.
 add_executable(test_app_shell
@@ -1304,6 +1309,7 @@ set(HEADLESS_TESTS
     test_determinism
     test_determinism_fuzz
     test_doodle_library
+    test_doodle_phone_sheet
     test_doodle_rollback
     test_doodle_scene
     test_dungeon_decor

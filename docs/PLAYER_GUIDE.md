@@ -4,16 +4,25 @@ Doodlebound turns a drawing into a game you can play, share, and compete on. Thi
 
 ## Capture
 
-Draw a level on paper - walls as lines, and symbols for the pieces:
+Draw a level on paper with dark walls as lines. The tested basic symbol language is color-first:
 
-- a **triangle** is your start, a **square** is the exit, a **circle** is a coin;
-- an **X** is an enemy, a **+** is a key (`+1` opens door `1`), a bar is a switch;
-- spikes are hazards, a box is a pushable block.
+- a **green filled mark** is the player start; a **blue filled mark** is the exit;
+- a **yellow filled mark** is a coin; a **red filled mark** is an enemy.
+
+Keep the colored marks distinct from each other and from dark wall lines. The photo pipeline
+currently detects these classes by hue and uses shape only to refine the result. A monochrome
+shape on its own is not a reliable way to specify one of these objects. Review the detected
+symbols before playing, and correct any mistakes there. The printable
+[three-room sample](../assets/printables/doodlebound-three-room.svg) demonstrates the basic
+legend. The richer vocabulary currently represented in the game and editor includes:
+
+- keys and numbered locked doors, switches, spikes/hazards, and pushable blocks.
 
 Photograph it (or import an image, an OpenStreetMap area, or an SVG floor plan). The computer
 vision pipeline binarizes the ink, vectorizes the walls, recognizes the symbols, and builds a
-playable level. Every captured level is checked for **fairness** - it is guaranteed solvable
-before you play, and can be auto-repaired if a symbol landed somewhere unreachable.
+playable level. The current review model checks required elements and confidence. Solver
+support for advanced mechanics is bounded and must not be presented as a universal
+solvability guarantee. Review/repair or reject uncertain levels before playing.
 
 ## Play
 
