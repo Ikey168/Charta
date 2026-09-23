@@ -39,6 +39,11 @@ for upgrades. Set `DOODLEBOUND_VERSION_CODE` to a strictly higher integer when u
 outside the repository. Verify the exact release APK with the static checker and an install
 or upgrade on a device before sharing it. A build that lacks signing variables fails rather
 than silently producing an unsigned release.
+After committing source, [the packaging script](../scripts/android-demo-package.sh) can
+build the release APK, verify it, archive unstripped native symbols and write SHA-256
+checksums under `android/build/demo-artifacts/`. It refuses to overwrite an existing
+artifact directory. Archive the keystore separately under an accountable owner; the
+artifact package intentionally excludes it.
 
 ## Quick operator path
 

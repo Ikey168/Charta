@@ -69,7 +69,7 @@ public:
     bool parse(Json& out) {
         if (!value(out)) return false;
         ws();
-        return true;
+        return m_i == m_s.size();
     }
 
 private:
