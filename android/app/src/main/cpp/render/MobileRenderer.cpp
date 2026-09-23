@@ -178,7 +178,8 @@ void MobileRenderer::loadSceneLocked(const IKore::game::SceneDescription& scene)
     scene_=scene; game_=IKore::game::loadGame(scene_);
     tour_=IKore::game::TourController{};
     pointers_.clear(); movementPointer_=lookPointer_=-1;
-    hasLevel_=true; paused_=false; elapsed_=accumulator_=effectTime_=0.0f;
+    // Loading or retrying a level must not bypass the host's pause/focus gate.
+    hasLevel_=true; elapsed_=accumulator_=effectTime_=0.0f;
     cameraX_=game_.playerPosition.x; cameraZ_=game_.playerPosition.z;
     lastCoins_=0; lastStatus_=IKore::game::GameStatus::Playing;
 }
@@ -310,6 +311,10 @@ void MobileRenderer::setLeftHanded(bool enabled) {
 }
 void MobileRenderer::setReducedMotion(bool enabled) {
     std::lock_guard<std::mutex> lock(mutex_); reducedMotion_=enabled;
+}
+bool MobileRenderer::isPaused() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return paused_;
 }
 int MobileRenderer::status() const {
     std::lock_guard<std::mutex> lock(mutex_);

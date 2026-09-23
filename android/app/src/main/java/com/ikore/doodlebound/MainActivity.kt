@@ -10,6 +10,8 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.google.androidgamesdk.GameActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -46,6 +48,12 @@ class MainActivity : GameActivity() {
         }
         nativeHandle = NativeBridge.createSession()
         rootView = FrameLayout(this)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val safe = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            insets
+        }
         gameView = object : GLSurfaceView(this) {
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 val handle = nativeHandle
@@ -89,14 +97,20 @@ class MainActivity : GameActivity() {
         }
         rootView.addView(gameView, FrameLayout.LayoutParams(-1, -1))
         setContentView(rootView)
+        ViewCompat.requestApplyInsets(rootView)
         DemoUi.install(this, rootView)
     }
 
     fun showGame() {
         gameplayVisible = true
         gameView.visibility = View.VISIBLE
-        if (hostResumed && windowFocused && nativeHandle != 0L) NativeBridge.resume(nativeHandle)
         DemoUi.showGame()
+        if (hostResumed && windowFocused) {
+            if (nativeHandle != 0L) NativeBridge.resume(nativeHandle)
+        } else {
+            if (nativeHandle != 0L) NativeBridge.pause(nativeHandle)
+            DemoUi.onHostPause()
+        }
     }
 
     fun showMenu() {
@@ -111,7 +125,7 @@ class MainActivity : GameActivity() {
         if (::gameView.isInitialized) {
             gameView.onResume()
             if (nativeHandle != 0L && gameplayVisible && windowFocused) NativeBridge.resume(nativeHandle)
-            DemoUi.onHostResume()
+            if (windowFocused) DemoUi.onHostResume() else DemoUi.onHostPause()
         }
     }
 
@@ -133,6 +147,9 @@ class MainActivity : GameActivity() {
         if (nativeHandle == 0L) return
         if (hasFocus && hostResumed && gameplayVisible) NativeBridge.resume(nativeHandle)
         else NativeBridge.pause(nativeHandle)
+        if (::rootView.isInitialized) {
+            if (hasFocus && hostResumed) DemoUi.onHostResume() else DemoUi.onHostPause()
+        }
     }
 
     override fun onDestroy() {

@@ -29,6 +29,7 @@ public:
     void touch(int action, int pointerId, float x, float y);
     void pause();
     void resume();
+    bool isPaused() const;
     bool startLevel(int index);
     void restart();
     void setTour(bool enabled);

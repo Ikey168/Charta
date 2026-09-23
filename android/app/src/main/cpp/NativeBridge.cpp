@@ -75,6 +75,12 @@ Java_com_ikore_doodlebound_NativeBridge_resume(JNIEnv*, jobject, jlong handle) {
     if (auto s = session(handle)) s->resume();
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_ikore_doodlebound_NativeBridge_isPaused(JNIEnv*, jobject, jlong handle) {
+    auto s = session(handle);
+    return !s || s->isPaused() ? JNI_TRUE : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_ikore_doodlebound_NativeBridge_surfaceCreated(JNIEnv*, jobject, jlong handle) {
     if (auto s = session(handle)) s->surfaceCreated();

@@ -9,6 +9,7 @@ object NativeBridge {
     external fun activeSessions(): Int
     external fun pause(handle: Long)
     external fun resume(handle: Long)
+    external fun isPaused(handle: Long): Boolean
     external fun surfaceCreated(handle: Long)
     external fun surfaceDestroyed(handle: Long)
     external fun surfaceChanged(handle: Long, width: Int, height: Int)

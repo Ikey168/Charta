@@ -11,6 +11,24 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MainActivityLifecycleTest {
+    @Test fun menuAndBackgroundKeepNewOrRetriedLevelPaused() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.showMenu()
+                assertTrue(NativeBridge.isPaused(activity.nativeHandle))
+                assertTrue(NativeBridge.startLevel(activity.nativeHandle, 0))
+                assertTrue(NativeBridge.isPaused(activity.nativeHandle))
+                NativeBridge.restart(activity.nativeHandle)
+                assertTrue(NativeBridge.isPaused(activity.nativeHandle))
+            }
+            scenario.moveToState(Lifecycle.State.STARTED)
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            scenario.onActivity { activity ->
+                assertTrue(NativeBridge.isPaused(activity.nativeHandle))
+            }
+        }
+    }
+
     @Test fun tenPauseAndRecreateCyclesKeepNativeSessionUsable() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             repeat(10) {
