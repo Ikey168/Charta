@@ -60,7 +60,7 @@ jobs:
             set -eu
             trap 'adb logcat -d -v time > "$GITHUB_WORKSPACE/android-logcat.txt"; adb shell dumpsys activity activities > "$GITHUB_WORKSPACE/android-activities.txt"' EXIT
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
+            adb logcat -c -b main -b crash
             adb shell am start -W -n com.ikore.doodlebound/.MainActivity
             sleep 8
             adb shell pidof com.ikore.doodlebound
