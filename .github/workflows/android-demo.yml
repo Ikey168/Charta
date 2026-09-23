@@ -42,7 +42,7 @@ jobs:
         run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1' 'platform-tools'
       - name: Build both ABI variants
         working-directory: android
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Check APK libraries
         run: |
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | tee android-apk-inventory.txt
@@ -60,11 +60,61 @@ jobs:
             set -eu
             trap 'adb logcat -d -v time > "$GITHUB_WORKSPACE/android-logcat.txt"; adb shell dumpsys activity activities > "$GITHUB_WORKSPACE/android-activities.txt"' EXIT
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb logcat -c -b main -b crash
             adb shell am start -W -n com.ikore.doodlebound/.MainActivity
             sleep 8
             adb shell pidof com.ikore.doodlebound
-            cd android && ./gradlew --no-daemon :app:connectedDebugAndroidTest && cd ..
+            adb shell am force-stop com.ikore.doodlebound
+            run_filtered_test() {
+              recovery_test_filter="$1"
+              recovery_result_dir="$2"
+              recovery_stage="$3"
+              mkdir -p "$recovery_result_dir"
+              if [ -n "$recovery_stage" ]; then
+                adb shell am instrument -w -r -e class "$recovery_test_filter" \
+                  -e acceptanceRecoveryStage "$recovery_stage" \
+                  com.ikore.doodlebound.test/androidx.test.runner.AndroidJUnitRunner \
+                  > "$recovery_result_dir/direct-runner.txt" 2>&1
+              else
+                adb shell am instrument -w -r -e class "$recovery_test_filter" \
+                  com.ikore.doodlebound.test/androidx.test.runner.AndroidJUnitRunner \
+                  > "$recovery_result_dir/direct-runner.txt" 2>&1
+              fi
+              grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"
+            }
+            run_filtered_test \
+              'com.ikore.doodlebound.AcceptanceRecoveryTest#seedRunCheckpointForHostProcessDeath' \
+              android/app/build/outputs/androidTest-results/process-death-seed \
+              seed
+            adb shell am start -W -n com.ikore.doodlebound/.MainActivity
+            mkdir -p android/app/build/outputs/androidTest-results/process-death-restore
+            adb shell pidof com.ikore.doodlebound \
+              > android/app/build/outputs/androidTest-results/process-death-restore/pid-before-force-stop.txt
+            test -s android/app/build/outputs/androidTest-results/process-death-restore/pid-before-force-stop.txt
+            adb shell am force-stop com.ikore.doodlebound
+            adb get-state > /dev/null
+            if adb shell pidof com.ikore.doodlebound \
+              > android/app/build/outputs/androidTest-results/process-death-restore/pid-after-force-stop.txt; then
+              test ! -s android/app/build/outputs/androidTest-results/process-death-restore/pid-after-force-stop.txt
+            fi
+            printf '%s\n' 'Host force-stop completed; target process is absent.' \
+              > android/app/build/outputs/androidTest-results/process-death-restore/force-stop-result.txt
+            run_filtered_test \
+              'com.ikore.doodlebound.AcceptanceRecoveryTest#restoreRunCheckpointAfterHostProcessDeath' \
+              android/app/build/outputs/androidTest-results/process-death-restore \
+              restore
+            run_filtered_test \
+              'com.ikore.doodlebound.AcceptanceRecoveryTest#deniedCameraPermissionOffersNonCameraFallbacks' \
+              android/app/build/outputs/androidTest-results/acceptance-denied-camera \
+              ''
+            run_filtered_test \
+              'com.ikore.doodlebound.AcceptanceRecoveryTest#cancelledPhotoPickerReturnsToHome' \
+              android/app/build/outputs/androidTest-results/acceptance-picker-cancel \
+              ''
+            cd android
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            cd ..
             adb shell dumpsys activity activities > android-activities.txt
             grep -F 'com.ikore.doodlebound' android-activities.txt
       - name: Upload APK and smoke evidence
