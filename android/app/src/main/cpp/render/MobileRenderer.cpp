@@ -301,6 +301,31 @@ void MobileRenderer::drawFrame(float deltaSeconds) {
     renderLocked();
 }
 
+std::vector<std::uint32_t> MobileRenderer::captureFrameArgb() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    constexpr std::int64_t kMaxPixels=4'000'000;
+    const std::int64_t count=static_cast<std::int64_t>(width_)*height_;
+    if (!glReady_ || !hasLevel_ || width_<1 || height_<1 || count>kMaxPixels) return {};
+    std::vector<std::uint8_t> rgba(static_cast<std::size_t>(count)*4);
+    glPixelStorei(GL_PACK_ALIGNMENT,1);
+    glReadPixels(0,0,width_,height_,GL_RGBA,GL_UNSIGNED_BYTE,rgba.data());
+    if (glGetError()!=GL_NO_ERROR) return {};
+    std::vector<std::uint32_t> result(static_cast<std::size_t>(count)+2);
+    result[0]=static_cast<std::uint32_t>(width_);
+    result[1]=static_cast<std::uint32_t>(height_);
+    for (int y=0; y<height_; ++y) {
+        const std::size_t sourceRow=static_cast<std::size_t>(height_-1-y)*width_;
+        const std::size_t targetRow=static_cast<std::size_t>(y)*width_;
+        for (int x=0; x<width_; ++x) {
+            const std::size_t i=(sourceRow+static_cast<std::size_t>(x))*4;
+            result[2+targetRow+static_cast<std::size_t>(x)]=
+                0xff000000u | (static_cast<std::uint32_t>(rgba[i])<<16) |
+                (static_cast<std::uint32_t>(rgba[i+1])<<8) | rgba[i+2];
+        }
+    }
+    return result;
+}
+
 bool MobileRenderer::initGlLocked() {
     const GLuint vs=compile(GL_VERTEX_SHADER,kVertex);
     const GLuint fs=compile(GL_FRAGMENT_SHADER,kFragment);

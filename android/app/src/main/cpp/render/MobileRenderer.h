@@ -41,6 +41,9 @@ public:
     // ARGB packed pixels, as returned by Android Bitmap.getPixels(). Empty on
     // invalid input or an image that cannot form a playable level.
     std::string convertPhoto(const std::vector<std::uint32_t>& argb, int width, int height) const;
+    // Call on the GL thread after drawFrame. [width, height, top-left ARGB...].
+    // Returns empty if the surface is unavailable or exceeds four million pixels.
+    std::vector<std::uint32_t> captureFrameArgb();
 
 private:
     struct Pointer { float originX{}, originY{}, x{}, y{}; bool movement{}; };
