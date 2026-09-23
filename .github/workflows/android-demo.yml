@@ -57,7 +57,7 @@ jobs:
           profile: pixel_5
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             trap 'adb logcat -d -v time > "$GITHUB_WORKSPACE/android-logcat.txt"; adb shell dumpsys activity activities > "$GITHUB_WORKSPACE/android-activities.txt"' EXIT
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c

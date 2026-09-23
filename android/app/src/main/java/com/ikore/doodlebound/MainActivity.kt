@@ -114,6 +114,7 @@ class MainActivity : GameActivity() {
 
     fun showGame() {
         gameplayVisible = true
+        gameView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         gameView.visibility = View.VISIBLE
         DemoUi.showGame()
         if (hostResumed && windowFocused) {
@@ -126,6 +127,7 @@ class MainActivity : GameActivity() {
 
     fun showMenu() {
         gameplayVisible = false
+        gameView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         if (nativeHandle != 0L) NativeBridge.pause(nativeHandle)
         DemoUi.showMenu()
     }
