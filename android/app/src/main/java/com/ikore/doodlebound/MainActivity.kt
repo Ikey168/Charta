@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.google.androidgamesdk.GameActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -110,6 +111,13 @@ class MainActivity : GameActivity() {
         setContentView(rootView)
         ViewCompat.requestApplyInsets(rootView)
         DemoUi.install(this, rootView)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = handleBack()
+        })
+    }
+
+    private fun handleBack() {
+        if (!::rootView.isInitialized || !DemoUi.onBackPressed(this)) finish()
     }
 
     fun showGame() {
@@ -192,6 +200,6 @@ class MainActivity : GameActivity() {
 
     @Deprecated("Legacy back bridge for the demo UI")
     override fun onBackPressed() {
-        if (!::rootView.isInitialized || !DemoUi.onBackPressed(this)) super.onBackPressed()
+        handleBack()
     }
 }

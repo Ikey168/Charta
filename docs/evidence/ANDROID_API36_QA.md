@@ -28,6 +28,40 @@ succeeded and a fresh launch/native play smoke passed on debug APK SHA-256
 The recaptured play screenshot shows readable status and navigation icons and a
 HUD clear of the status bar. The app crash buffer remained empty.
 
+The signed v1 package from source commit `b66ac4c` was clean installed after
+uninstalling the debug app. Artifact:
+`android/build/demo-artifacts/v1-b66ac4cb7aa2/doodlebound-demo.apk`, SHA-256
+`49827e070177aa03ea397ff1787a1dab7c0e1e69307053adbeb171e6797463f9`.
+Android reported version code 1, version name `0.1.0-demo`. Cold launch
+completed in 4.10 seconds on this emulator. Home → First steps native play →
+Pause → Home worked and the app crash buffer contained no fatal exception or
+ANR. A five-second `pidstat` sample of the **whole emulator process** measured
+about 970% host CPU in software-rendered play, then about 44% on Pause (one
+spike; steady samples near 30%) and 21% on Home. These are diagnostic CPU
+readings, not phone performance measurements.
+
+Before a same-certificate upgrade, the v1 Settings screen showed **Haptics:
+Off** after changing it from On. `adb install -r` of signed v2 artifact
+`android/build/demo-artifacts/v2-b66ac4cb7aa2/doodlebound-demo.apk` (SHA-256
+`59cd1294630c45b95c139bd9f316e3a88dcc7412cc2d5993176c4d377aa009bd`)
+succeeded without uninstalling v1. Android reported version code 2, version
+name `0.1.1-demo`; Settings still showed **Haptics: Off** after relaunch. The
+First steps native level opened with Coins/Pause/Tour HUD and no fatal entry in
+the app crash log buffer. Android system Back from Settings exited to the
+launcher rather than returning Home, so a navigation fix and a fresh signed
+build are pending. This v2 artifact is retained as the upgrade test input,
+not the final handoff package.
+
+The navigation fix registers a lifecycle-bound OnBackPressedCallback through
+the GameActivity AppCompat back dispatcher and keeps the legacy activity
+fallback for older Android versions. On the API 36 emulator, the focused
+SystemBackRegressionTest sent GLOBAL_ACTION_BACK from Settings and confirmed
+the Home screen; it passed, and the full connected instrumentation suite passed
+10/10. A manual adb shell input keyevent 4 from Settings also returned Home.
+The emulator uses three-button navigation, so this did not test an edge swipe.
+QA still needs to verify the fresh signed build and its upgrade from v2; issue
+#429 remains open until that check is confirmed.
+
 Manual checks on the emulator confirmed fresh install and launch, sample
 conversion to review and native play, a visibly rendered curated First steps
 scene, camera permission denial with Draw/Choose Photo recovery, virtual
@@ -40,7 +74,7 @@ recaptured against the final hash. The virtual preview depicts the emulator's
 synthetic scene and does not validate physical camera focus or photo quality.
 
 No physical phone was connected. Thus touch feel, real camera capture, thermal and frame-pacing
-budgets, second-device sharing, 16 KB runtime loading, and signed APK upgrade
-remain pending physical or later emulator evidence. A brief System UI
+budgets, second-device sharing, and 16 KB runtime loading remain pending
+physical or later emulator evidence. A brief System UI
 "isn't responding" prompt appeared during the emulator's first boot; the app
 test suite still passed after the emulator settled.
