@@ -29,7 +29,7 @@ int main() {
 
     // 1. The manifest is non-empty, uniquely id'd, and campaign-ordered.
     {
-        CHECK(manifest.size() == 6);
+        CHECK(manifest.size() == 8);
         std::set<std::string> ids;
         for (std::size_t i = 0; i < manifest.size(); ++i) {
             CHECK(manifest[i].order == static_cast<int>(i) + 1); // 1-based, ascending

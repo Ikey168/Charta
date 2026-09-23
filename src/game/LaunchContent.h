@@ -118,6 +118,43 @@ inline SceneDescription level_the_push() {
     return s;
 }
 
+// Level 7: two linked lanes with an optional locked alcove and a moving threat.
+inline SceneDescription level_crossroads() {
+    SceneDescription s;
+    wall(s, 0, 3, 16, 0.4f);
+    wall(s, 0, -3, 16, 0.4f);
+    wall(s, -8, 0, 0.4f, 6);
+    wall(s, 8, 0, 0.4f, 6);
+    spawn(s, "player", -6, 0);
+    spawn(s, "key@3", -4, 1);
+    spawn(s, "coin", -1, -1);
+    spawn(s, "enemy", 1, 2);
+    spawn(s, "lock@3", 3, 2);
+    spawn(s, "coin", 4, -1);
+    spawn(s, "exit", 6, 0);
+    return s;
+}
+
+// Level 8: the finale combines hazards, a switch and a pushable block while
+// keeping the required coin route clear of solver-unsupported toggle state.
+inline SceneDescription level_finale() {
+    SceneDescription s;
+    wall(s, 0, 4, 20, 0.4f);
+    wall(s, 0, -4, 20, 0.4f);
+    wall(s, -10, 0, 0.4f, 8);
+    wall(s, 10, 0, 0.4f, 8);
+    spawn(s, "player", -8, 0);
+    spawn(s, "coin", -4, -1);
+    spawn(s, "hazard", -2, 2);
+    spawn(s, "switch@4", 0, -2);
+    spawn(s, "toggle@4", 2, 3);
+    spawn(s, "block", 2, 1);
+    spawn(s, "coin", 4, -1);
+    spawn(s, "enemy", 5, 2);
+    spawn(s, "exit", 8, 0);
+    return s;
+}
+
 } // namespace content
 
 /// One shipped level: its id, ordering, world, and a builder for its scene.
@@ -137,6 +174,8 @@ inline std::vector<ContentLevel> launchManifest() {
         {"c4_lock_and_key", "campaign", 4, &content::level_lock_and_key},
         {"c5_gauntlet", "campaign", 5, &content::level_the_gauntlet},
         {"c6_the_push", "campaign", 6, &content::level_the_push},
+        {"c7_crossroads", "campaign", 7, &content::level_crossroads},
+        {"c8_finale", "campaign", 8, &content::level_finale},
     };
 }
 
