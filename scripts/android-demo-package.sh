@@ -14,15 +14,20 @@ if [ -n "$(git -C "$repo" status --porcelain --untracked-files=normal)" ]; then
     echo "Commit source changes before packaging so the artifact has an exact source revision" >&2
     exit 2
 fi
+commit=$(git -C "$repo" rev-parse HEAD)
 
 (
     cd "$repo/android"
     ./gradlew --no-daemon :app:assembleRelease
 )
+if [ "$(git -C "$repo" rev-parse HEAD)" != "$commit" ] ||
+   [ -n "$(git -C "$repo" status --porcelain --untracked-files=normal)" ]; then
+    echo "Source changed during release build; rerun after committing a stable revision" >&2
+    exit 2
+fi
 
 apk="$repo/android/app/build/outputs/apk/release/app-release.apk"
 if [ ! -f "$apk" ]; then echo "Signed release APK was not produced" >&2; exit 1; fi
-commit=$(git -C "$repo" rev-parse HEAD)
 version=$($sdk/build-tools/35.0.0/aapt dump badging "$apk" | sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" | head -1)
 if [ -z "$version" ]; then echo "Could not read APK version code" >&2; exit 1; fi
 output="$repo/android/build/demo-artifacts/v${version}-${commit:0:12}"
