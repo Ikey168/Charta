@@ -10,6 +10,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.google.androidgamesdk.GameActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
@@ -17,6 +19,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+
+internal class NativeSessionViewModel : ViewModel() {
+    val handle: Long = NativeBridge.createSession()
+
+    override fun onCleared() {
+        NativeBridge.destroySession(handle)
+    }
+}
 
 /**
  * Android owns windows, permissions and navigation. The native session owns game state.
@@ -57,7 +67,7 @@ class MainActivity : GameActivity() {
             })
             return
         }
-        nativeHandle = NativeBridge.createSession()
+        nativeHandle = ViewModelProvider(this).get(NativeSessionViewModel::class.java).handle
         rootView = FrameLayout(this)
         rootView.setBackgroundColor(systemBarBackground)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
@@ -178,10 +188,9 @@ class MainActivity : GameActivity() {
         if (nativeHandle != 0L) {
             NativeBridge.pause(nativeHandle)
             if (::gameView.isInitialized) gameView.onPause()
-            NativeBridge.destroySession(nativeHandle)
-            nativeHandle = 0L
         }
         super.onDestroy()
+        nativeHandle = 0L
     }
 
     @Deprecated("Legacy result bridge for camera and picker flows")

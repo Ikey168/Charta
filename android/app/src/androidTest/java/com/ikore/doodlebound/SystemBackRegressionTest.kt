@@ -1,6 +1,8 @@
 package com.ikore.doodlebound
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -27,7 +29,12 @@ class SystemBackRegressionTest {
                 assertNotNull(findViewWithText(activity.rootView, "Settings"))
             }
 
-            assertTrue(instrumentation.uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
+            if (Build.VERSION.SDK_INT >= 33) {
+                assertTrue(instrumentation.uiAutomation.performGlobalAction(
+                    AccessibilityService.GLOBAL_ACTION_BACK))
+            } else {
+                instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            }
             instrumentation.waitForIdleSync()
 
             scenario.onActivity { activity ->

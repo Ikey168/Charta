@@ -30,6 +30,7 @@ class MainActivityLifecycleTest {
     }
 
     @Test fun tenPauseAndRecreateCyclesKeepNativeSessionUsable() {
+        var retainedHandle = 0L
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             repeat(10) {
                 scenario.moveToState(Lifecycle.State.STARTED)
@@ -37,6 +38,8 @@ class MainActivityLifecycleTest {
                 scenario.recreate()
                 scenario.onActivity { activity ->
                     assertNotEquals(0L, activity.nativeHandle)
+                    if (retainedHandle == 0L) retainedHandle = activity.nativeHandle
+                    assertEquals(retainedHandle, activity.nativeHandle)
                     assertEquals(1, NativeBridge.activeSessions())
                     assertTrue(activity.gameView.isAttachedToWindow)
                     assertTrue(NativeBridge.status(activity.nativeHandle) in 0..3)
