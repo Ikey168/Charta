@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.ikore.doodlebound.BundledSampleSmokeTest" tests="9" failures="0" errors="0" skipped="0" time="111.048" timestamp="2026-09-23T01:37:06" hostname="localhost">
+  <properties>
+    <property name="device" value="charta_api36_qa(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="importedFileCanBeSavedAndBadImportKeepsIt" classname="com.ikore.doodlebound.BundledSampleSmokeTest" time="11.894" />
+  <testcase name="bundledDrawingConvertsAndStartsPlaying" classname="com.ikore.doodlebound.BundledSampleSmokeTest" time="17.456" />
+  <testcase name="tenPauseAndRecreateCyclesKeepNativeSessionUsable" classname="com.ikore.doodlebound.MainActivityLifecycleTest" time="49.418" />
+  <testcase name="menuAndBackgroundKeepNewOrRetriedLevelPaused" classname="com.ikore.doodlebound.MainActivityLifecycleTest" time="7.463" />
+  <testcase name="libraryPreservesCommittedLevelWhenDraftIsCorrupt" classname="com.ikore.doodlebound.ProductFlowTest" time="0.277" />
+  <testcase name="levelFormatAndShareRejectTampering" classname="com.ikore.doodlebound.ProductFlowTest" time="0.056" />
+  <testcase name="interruptedSampleCanRestartAfterActivityRecreation" classname="com.ikore.doodlebound.ProductFlowTest" time="9.703" />
+  <testcase name="homeDrawReviewAndBackAreReachableWithoutCamera" classname="com.ikore.doodlebound.ProductFlowTest" time="8.723" />
+  <testcase name="ambientLoopHasSafeSeamAndNoClipping" classname="com.ikore.doodlebound.ProductFlowTest" time="3.007" />
+</testsuite>
