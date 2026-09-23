@@ -38,6 +38,10 @@ public:
     int coinsCollected() const;
     int totalCoins() const;
     bool loadLevelJson(const std::string& json);
+    // Pure, bounded review operations. JSON response schemas are documented in
+    // the Android bridge; neither call changes the active game.
+    std::string reviewLevelJson(const std::string& json) const;
+    std::string suggestRepair(const std::string& json) const;
     // ARGB packed pixels, as returned by Android Bitmap.getPixels(). Empty on
     // invalid input or an image that cannot form a playable level.
     std::string convertPhoto(const std::vector<std::uint32_t>& argb, int width, int height) const;

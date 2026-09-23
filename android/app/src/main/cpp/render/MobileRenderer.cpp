@@ -3,6 +3,7 @@
 #include "doodle/Doodle.h"
 #include "game/GameCamera.h"
 #include "game/LaunchContent.h"
+#include "game/LevelRepair.h"
 #include "game/TouchControls.h"
 
 #include <GLES3/gl3.h>
@@ -138,6 +139,36 @@ bool validLevel(const IKore::game::LevelSpec& spec) {
     return players==1 && exits==1;
 }
 
+bool parseCheckedLevel(const std::string& json, IKore::game::LevelSpec& spec) {
+    if (json.size()>1024*1024) return false;
+    IKore::game::detail::Json root;
+    if (!IKore::game::detail::parse(json,root) || !root.isObj() ||
+        root.at("format").asStr()!="doodle-level" || root.at("version").asNum()!=1.0)
+        return false;
+    return IKore::game::fromLevelJson(json,spec) && validLevel(spec);
+}
+
+bool reviewSupported(const IKore::game::DungeonGame& game) {
+    // The portable solver models static walls, coin pickup, and exit. A static
+    // route through moving or stateful mechanics is not a gameplay guarantee.
+    if (!game.enemies.empty() || !game.hazards.empty() || !game.keys.empty() ||
+        !game.lockedDoors.empty() || !game.switches.empty() ||
+        !game.toggleWalls.empty() || !game.blocks.empty()) return false;
+    if (game.coins.size()>6 || game.walls.size()>512) return false;
+    const IKore::game::detail::SolverGrid grid=IKore::game::detail::buildGrid(game,{});
+    return grid.nx>0 && grid.nz>0 &&
+           static_cast<std::int64_t>(grid.nx)*grid.nz<=4096;
+}
+
+std::string reviewResult(const char* state, const char* message, int par=-1,
+                         int total=0, int reachable=0, bool exitReachable=false) {
+    return std::string("{\"state\":\"")+state+"\",\"par\":"+std::to_string(par)+
+        ",\"totalCoins\":"+std::to_string(total)+
+        ",\"reachableCoins\":"+std::to_string(reachable)+
+        ",\"exitReachable\":"+(exitReachable?"true":"false")+
+        ",\"message\":\""+message+"\"}";
+}
+
 } // namespace
 
 MobileRenderer::MobileRenderer() { startLevel(0); }
@@ -164,16 +195,56 @@ void MobileRenderer::restart() {
     if (hasLevel_) loadSceneLocked(scene_);
 }
 bool MobileRenderer::loadLevelJson(const std::string& json) {
-    if (json.size()>1024*1024) return false;
-    IKore::game::detail::Json root;
-    if (!IKore::game::detail::parse(json,root) || !root.isObj() ||
-        root.at("format").asStr()!="doodle-level" || root.at("version").asNum()!=1.0)
-        return false;
     IKore::game::LevelSpec spec;
-    if (!IKore::game::fromLevelJson(json,spec) || !validLevel(spec)) return false;
+    if (!parseCheckedLevel(json,spec)) return false;
     const auto scene=IKore::game::convert(spec);
     std::lock_guard<std::mutex> lock(mutex_);
     levelIndex_=-1; loadSceneLocked(scene); return true;
+}
+
+std::string MobileRenderer::reviewLevelJson(const std::string& json) const {
+    IKore::game::LevelSpec spec;
+    if (!parseCheckedLevel(json,spec))
+        return reviewResult("invalid","Level needs one start, one exit, and bounded valid geometry.");
+    const auto game=IKore::game::loadGame(IKore::game::convert(spec));
+    if (!reviewSupported(game))
+        return reviewResult("unsupported","This level exceeds the review limit or uses dynamic mechanics.",
+                            -1,game.totalCoins);
+    const auto result=IKore::game::solve(game);
+    return reviewResult(result.solvable?"solvable":"unsolvable",
+        result.solvable?"A static route reaches every coin and the exit.":
+                        "One or more objectives have no route through the walls.",
+        result.par,result.totalCoins,result.reachableCoins,result.exitReachable);
+}
+
+std::string MobileRenderer::suggestRepair(const std::string& json) const {
+    IKore::game::LevelSpec spec;
+    if (!parseCheckedLevel(json,spec))
+        return "{\"state\":\"invalid\",\"nowSolvable\":false,\"edits\":[],"
+               "\"message\":\"Level geometry or symbols are invalid.\"}";
+    const auto game=IKore::game::loadGame(IKore::game::convert(spec));
+    if (!reviewSupported(game))
+        return "{\"state\":\"unsupported\",\"nowSolvable\":false,\"edits\":[],"
+               "\"message\":\"Repair is available for bounded static levels only.\"}";
+    IKore::game::RepairOptions options;
+    options.apply=false;
+    const auto result=IKore::game::repairLevel(game,options);
+    std::string out="{\"state\":\"";
+    out+=result.edits.empty()?"none":"suggested";
+    out+="\",\"nowSolvable\":";
+    out+=result.nowSolvable?"true":"false";
+    out+=",\"edits\":[";
+    for (std::size_t i=0; i<result.edits.size(); ++i) {
+        const auto& e=result.edits[i];
+        if (i) out+=",";
+        out+="{\"type\":\""+e.what+"\",\"fromX\":"+std::to_string(e.from.x)+
+             ",\"fromZ\":"+std::to_string(e.from.z)+
+             ",\"toX\":"+std::to_string(e.to.x)+
+             ",\"toZ\":"+std::to_string(e.to.z)+"}";
+    }
+    out+=result.edits.empty()?"],\"message\":\"No objective relocation suggested.\"}":
+        "],\"message\":\"Preview each relocation before applying it.\"}";
+    return out;
 }
 
 std::string MobileRenderer::convertPhoto(const std::vector<std::uint32_t>& argb,int width,int height) const {
