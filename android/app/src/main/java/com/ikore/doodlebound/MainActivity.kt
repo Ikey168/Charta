@@ -3,6 +3,7 @@ package com.ikore.doodlebound
 import android.content.Intent
 import android.app.ActivityManager
 import android.content.Context
+import android.graphics.Color
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.view.MotionEvent
@@ -12,6 +13,7 @@ import android.widget.TextView
 import com.google.androidgamesdk.GameActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -36,6 +38,14 @@ class MainActivity : GameActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val systemBarBackground = Color.rgb(18, 24, 32)
+        window.decorView.setBackgroundColor(systemBarBackground)
+        window.statusBarColor = systemBarBackground
+        window.navigationBarColor = systemBarBackground
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         val graphics = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .deviceConfigurationInfo
         if (graphics.reqGlEsVersion < 0x30000) {
@@ -48,6 +58,7 @@ class MainActivity : GameActivity() {
         }
         nativeHandle = NativeBridge.createSession()
         rootView = FrameLayout(this)
+        rootView.setBackgroundColor(systemBarBackground)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
             val safe = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
