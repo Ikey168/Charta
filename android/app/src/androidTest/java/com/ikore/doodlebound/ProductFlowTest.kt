@@ -12,6 +12,14 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class ProductFlowTest {
+    @Test fun ambientLoopHasSafeSeamAndNoClipping() {
+        val samples = AudioFeedback.ambientLoop()
+        assertEquals(22_050 * 8, samples.size)
+        assertTrue(samples.maxOf { kotlin.math.abs(it.toInt()) } < 16_000)
+        assertTrue(kotlin.math.abs(samples.first().toInt() - samples.last().toInt()) < 100)
+        assertTrue(samples.any { kotlin.math.abs(it.toInt()) > 1_000 })
+    }
+
     @Test fun levelFormatAndShareRejectTampering() {
         assertEquals("DDL1:DD-43ZN6STG8X615:eyJmb3JtYXQiOiJkb29kbGUtbGV2ZWwiLCJ2ZXJzaW9uIjoxfQ",
             LevelShareCodec.encode("{\"format\":\"doodle-level\",\"version\":1}"))

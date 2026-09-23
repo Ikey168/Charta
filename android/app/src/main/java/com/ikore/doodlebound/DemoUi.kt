@@ -613,10 +613,11 @@ object DemoUi {
             }
             toggle("haptics", "Haptics", true)
             toggle("reducedMotion", "Reduced motion") { NativeBridge.setReducedMotion(activity.nativeHandle, it) }
-            toggle("sound", "Sound cues", true) { configureAudio() }
+            toggle("sound", "Sound", true) { configureAudio() }
+            toggle("musicOn", "Ambient music", true) { configureAudio() }
             volumeControl("Master volume", "master", 60)
             volumeControl("Effects volume", "effects", 80)
-            note("Music: no music track is bundled with this demo.")
+            volumeControl("Music volume", "music", 35)
             action("Help") { showHelp() }
             action("Back") { showHome() }
         }
@@ -660,7 +661,9 @@ object DemoUi {
     }
 
     private fun configureAudio() {
-        if (::audio.isInitialized) audio.configure(prefs.getBoolean("sound", true), prefs.getInt("master", 60), prefs.getInt("effects", 80))
+        if (::audio.isInitialized) audio.configure(
+            prefs.getBoolean("sound", true), prefs.getBoolean("musicOn", true),
+            prefs.getInt("master", 60), prefs.getInt("effects", 80), prefs.getInt("music", 35))
     }
 
     private fun haptic(strong: Boolean) {
