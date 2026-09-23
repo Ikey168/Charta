@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="210mm" viewBox="0 0 840 840" role="img" aria-labelledby="title desc">
+  <title id="title">Doodlebound three-room drawing sheet</title>
+  <desc id="desc">Print this square playing field. Black lines make three connected rooms with doorway gaps. Green is start, yellow is a coin, red is an enemy and blue is exit. Keep other markings outside the camera crop.</desc>
+  <rect width="840" height="840" fill="#fff"/>
+  <g fill="none" stroke="#181818" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M75 75 H765 V765 H75 Z"/>
+    <path d="M305 75 V380 M305 460 V765"/>
+    <path d="M535 75 V380 M535 460 V765"/>
+  </g>
+  <circle cx="180" cy="420" r="26" fill="#1ea436"/>
+  <circle cx="420" cy="420" r="23" fill="#dfb400"/>
+  <circle cx="420" cy="620" r="23" fill="#e22b2b"/>
+  <circle cx="660" cy="420" r="26" fill="#2861dc"/>
+</svg>

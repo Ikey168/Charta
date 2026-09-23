@@ -4,7 +4,7 @@ Umbrella: [#421](https://github.com/Ikey168/Charta/issues/421). Parent context: 
 
 [Product and technical plan](ANDROID_DEMO_PLAN.md) · [Acceptance and handoff](ANDROID_DEMO_ACCEPTANCE.md)
 
-All work is initially open. GitHub is authoritative for current status. Dependencies are prerequisites, not suggested reading. Estimates and owners are assigned after the foundation spike; no arbitrary dates are imposed.
+All work is initially open. GitHub is authoritative for current status. Dependencies are prerequisites, not suggested reading. Estimates and owners are assigned after the foundation spike; no arbitrary dates are imposed. The implemented Tier-1 photo recognizer uses green=start, blue=exit, yellow=coin and red=enemy; shape-only legends in older documentation are superseded for this demo.
 
 ## [M25: Doodlebound Android foundation](https://github.com/Ikey168/Charta/milestone/27)
 

@@ -1,6 +1,7 @@
 # Doodlebound: complete Android phone demo
 
-Status: planned, not implemented or device-verified. Baseline inspected on 2026-09-23:
+Status: implementation in progress. The debug APK builds for arm64 and x86_64; device
+acceptance has not yet passed. Baseline inspected on 2026-09-23:
 `3c2318c66946797dc31cf97f5b354edf6c070ca4`. See the
 [delivery backlog](ANDROID_DEMO_BACKLOG.md) and [acceptance plan](ANDROID_DEMO_ACCEPTANCE.md).
 
@@ -17,9 +18,11 @@ Required content: three guided tutorial levels plus five curated challenge level
 polished dungeon theme, a printable three-room drawing sheet, top-down 3D play and a touch
 tour camera. Core creation vocabulary: walls, start, exit, coins, enemy. Curated levels also
 show keys/doors, switches, hazards and blocks after their mobile integration is verified.
-Use the implemented triangle=start, square=exit, circle=coin, X=enemy vocabulary from
-[the player guide](PLAYER_GUIDE.md); the older concept's S/X vocabulary conflicts with it.
-Freeze a single tested legend before producing tutorials, samples and capture fixtures.
+Use the implemented color-first vocabulary in `src/cv/Symbols.h`: green=start, blue=exit,
+yellow=coin and red=enemy, preferably as clearly separated filled marks. Shape can refine a
+type but is not the Tier-1 discriminator. [The player guide](PLAYER_GUIDE.md) previously
+described a shape-only legend; it must be corrected along with the older concept's S/X
+vocabulary. Freeze this tested legend before producing tutorials, samples and capture fixtures.
 
 Online accounts, cloud sync, public UGC discovery, leaderboards, live multiplayer, ads,
 purchases, iOS, Play Store publication and unrestricted messy-drawing recognition are

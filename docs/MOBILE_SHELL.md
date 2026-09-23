@@ -3,9 +3,10 @@
 The current implementation plan is the [complete Android demo plan](ANDROID_DEMO_PLAN.md),
 with [milestones and issues](ANDROID_DEMO_BACKLOG.md) and
 [physical-device acceptance gates](ANDROID_DEMO_ACCEPTANCE.md). It decomposes #419's mobile
-productization work. The proposed GameActivity host supersedes the tentative NativeActivity
-event adapter below; the portable-core status remains unchanged. No runnable Android APK or
-physical-phone sign-off is claimed by this document.
+productization work. The new `android/` GameActivity host supersedes the tentative
+NativeActivity event adapter below; the portable-core status remains unchanged. A debug
+APK builds for arm64 and x86_64, but physical-phone sign-off remains pending. The historical
+"Remaining" section below describes the baseline before this Android implementation.
 
 Issue #367 delivers the mobile game on the portable doodle library (#171) behind the thin
 `AppShell` host (#172). This document records what is in-tree now (the portable, headless
