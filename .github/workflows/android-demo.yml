@@ -2,6 +2,7 @@ name: Android demo
 
 on:
   push:
+    branches: [main]
     paths:
       - 'android/**'
       - 'src/mobile/**'

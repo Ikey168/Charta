@@ -40,7 +40,7 @@ for abi in arm64-v8a x86_64; do
     if [ -z "$native" ]; then echo "Missing unstripped $abi native library" >&2; exit 1; fi
     mkdir -p "$output/symbols/$abi"
     cp "$native" "$output/symbols/$abi/libdoodlebound.so"
-    if ! "$sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -S "$native" | rg -q '\.debug_info'; then
+    if ! "$sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -S "$native" | grep -F '.debug_info' >/dev/null; then
         echo "$abi native library lacks debug symbols; check Release CMake flags" >&2
         exit 1
     fi
