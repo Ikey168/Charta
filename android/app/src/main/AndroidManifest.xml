@@ -9,6 +9,7 @@
         <provider android:name=".ExportProvider" android:authorities="${applicationId}.exports"
             android:exported="false" android:grantUriPermissions="true" />
         <activity android:name=".MainActivity" android:exported="true"
+            android:enableOnBackInvokedCallback="true"
             android:screenOrientation="landscape" android:configChanges="orientation|screenSize|keyboardHidden|density|uiMode">
             <meta-data android:name="android.app.lib_name" android:value="doodlebound" />
             <intent-filter>

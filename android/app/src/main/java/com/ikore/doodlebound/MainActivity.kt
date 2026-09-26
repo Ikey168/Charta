@@ -3,17 +3,30 @@ package com.ikore.doodlebound
 import android.content.Intent
 import android.app.ActivityManager
 import android.content.Context
+import android.graphics.Color
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.google.androidgamesdk.GameActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+
+internal class NativeSessionViewModel : ViewModel() {
+    val handle: Long = NativeBridge.createSession()
+
+    override fun onCleared() {
+        NativeBridge.destroySession(handle)
+    }
+}
 
 /**
  * Android owns windows, permissions and navigation. The native session owns game state.
@@ -36,6 +49,14 @@ class MainActivity : GameActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val systemBarBackground = Color.rgb(18, 24, 32)
+        window.decorView.setBackgroundColor(systemBarBackground)
+        window.statusBarColor = systemBarBackground
+        window.navigationBarColor = systemBarBackground
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         val graphics = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .deviceConfigurationInfo
         if (graphics.reqGlEsVersion < 0x30000) {
@@ -46,8 +67,9 @@ class MainActivity : GameActivity() {
             })
             return
         }
-        nativeHandle = NativeBridge.createSession()
+        nativeHandle = ViewModelProvider(this).get(NativeSessionViewModel::class.java).handle
         rootView = FrameLayout(this)
+        rootView.setBackgroundColor(systemBarBackground)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
             val safe = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -99,10 +121,18 @@ class MainActivity : GameActivity() {
         setContentView(rootView)
         ViewCompat.requestApplyInsets(rootView)
         DemoUi.install(this, rootView)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = handleBack()
+        })
+    }
+
+    private fun handleBack() {
+        if (!::rootView.isInitialized || !DemoUi.onBackPressed(this)) finish()
     }
 
     fun showGame() {
         gameplayVisible = true
+        gameView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         gameView.visibility = View.VISIBLE
         DemoUi.showGame()
         if (hostResumed && windowFocused) {
@@ -115,6 +145,7 @@ class MainActivity : GameActivity() {
 
     fun showMenu() {
         gameplayVisible = false
+        gameView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         if (nativeHandle != 0L) NativeBridge.pause(nativeHandle)
         DemoUi.showMenu()
     }
@@ -157,10 +188,9 @@ class MainActivity : GameActivity() {
         if (nativeHandle != 0L) {
             NativeBridge.pause(nativeHandle)
             if (::gameView.isInitialized) gameView.onPause()
-            NativeBridge.destroySession(nativeHandle)
-            nativeHandle = 0L
         }
         super.onDestroy()
+        nativeHandle = 0L
     }
 
     @Deprecated("Legacy result bridge for camera and picker flows")
@@ -179,6 +209,6 @@ class MainActivity : GameActivity() {
 
     @Deprecated("Legacy back bridge for the demo UI")
     override fun onBackPressed() {
-        if (!::rootView.isInitialized || !DemoUi.onBackPressed(this)) super.onBackPressed()
+        handleBack()
     }
 }

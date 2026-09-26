@@ -2,6 +2,7 @@ name: Android demo
 
 on:
   push:
+    branches: [main]
     paths:
       - 'android/**'
       - 'src/mobile/**'
@@ -41,7 +42,7 @@ jobs:
         run: sdkmanager --install 'platforms;android-36' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1' 'platform-tools'
       - name: Build both ABI variants
         working-directory: android
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Check APK libraries
         run: |
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | tee android-apk-inventory.txt
@@ -52,20 +53,10 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
-          target: google_apis
+          target: default
           profile: pixel_5
           disable-animations: true
-          script: |
-            set -euo pipefail
-            trap 'adb logcat -d -v time > "$GITHUB_WORKSPACE/android-logcat.txt"; adb shell dumpsys activity activities > "$GITHUB_WORKSPACE/android-activities.txt"' EXIT
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am start -W -n com.ikore.doodlebound/.MainActivity
-            sleep 8
-            adb shell pidof com.ikore.doodlebound
-            cd android && ./gradlew --no-daemon :app:connectedDebugAndroidTest && cd ..
-            adb shell dumpsys activity activities > android-activities.txt
-            grep -F 'com.ikore.doodlebound' android-activities.txt
+          script: sh scripts/android-demo-emulator-smoke.sh
       - name: Upload APK and smoke evidence
         if: always()
         uses: actions/upload-artifact@v4

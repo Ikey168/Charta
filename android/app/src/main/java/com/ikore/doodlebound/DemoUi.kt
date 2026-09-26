@@ -13,6 +13,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.Gravity
@@ -31,6 +32,7 @@ import android.view.TextureView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import android.util.Log
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.util.UUID
@@ -42,6 +44,7 @@ import kotlin.math.hypot
 
 /** Native game HUD and Android product navigation. The Activity owns only lifecycle and the GL surface. */
 object DemoUi {
+    private const val TAG = "DemoUi"
     private const val PICK_PHOTO = 801
     private const val TAKE_PHOTO = 802
     private const val IMPORT_LEVEL = 803
@@ -736,15 +739,32 @@ object DemoUi {
     }
 
     private fun loadSampleDrawing() {
+        val startedAt = SystemClock.elapsedRealtime()
+        logInfo("bundled_sample start")
         val file = File(activity.cacheDir, "doodlebound-three-room.png")
+        val assetStartedAt = SystemClock.elapsedRealtime()
         try {
             activity.assets.open("doodlebound-three-room.png").use { source -> file.outputStream().use { source.copyTo(it) } }
-        } catch (error: Exception) { message("Sample drawing is unavailable: ${error.message}"); return }
+            logInfo("bundled_sample phase=asset_copy result=ok duration_ms=${SystemClock.elapsedRealtime() - assetStartedAt} bytes=${file.length()}")
+        } catch (error: Exception) {
+            logError("bundled_sample phase=asset_copy result=failed error=${error.javaClass.simpleName}")
+            message("Sample drawing is unavailable: ${error.message}")
+            return
+        }
         screen = "conversion"
         showSimple("Reading sample drawing", "This uses the same photo conversion as paper capture.", "Cancel" to { photoInput.cancel(); showHome() })
         photoInput.convert(Uri.fromFile(file)) { result ->
-            result.onSuccess { (draft, _) -> currentDraft = draft; library.saveDraft(draft); showReview(draft) }
-                .onFailure { message(it.message ?: "Could not convert the sample."); showHome() }
+            logInfo("bundled_sample callback result=${if (result.isSuccess) "ok" else "failed"} elapsed_ms=${SystemClock.elapsedRealtime() - startedAt}")
+            result.onSuccess { (draft, _) ->
+                currentDraft = draft
+                library.saveDraft(draft)
+                showReview(draft)
+                logInfo("bundled_sample review=shown elapsed_ms=${SystemClock.elapsedRealtime() - startedAt}")
+            }.onFailure { error ->
+                logWarning("bundled_sample review=failed elapsed_ms=${SystemClock.elapsedRealtime() - startedAt} error=${error.javaClass.simpleName}")
+                message(error.message ?: "Could not convert the sample.")
+                showHome()
+            }
         }
     }
 
@@ -767,6 +787,18 @@ object DemoUi {
     private fun confirmDiscard(onDiscard: () -> Unit) {
         AlertDialog.Builder(activity).setTitle("Leave your drawing?").setMessage("The current draft is saved and can be resumed from Home.")
             .setNegativeButton("Keep editing", null).setPositiveButton("Leave") { _, _ -> onDiscard() }.show()
+    }
+
+    private fun logInfo(message: String) {
+        if (BuildConfig.DEBUG) Log.i(TAG, message)
+    }
+
+    private fun logWarning(message: String) {
+        if (BuildConfig.DEBUG) Log.w(TAG, message)
+    }
+
+    private fun logError(message: String) {
+        if (BuildConfig.DEBUG) Log.e(TAG, message)
     }
 
     private fun content(title: String, subtitle: String, build: LinearLayout.() -> Unit) {
