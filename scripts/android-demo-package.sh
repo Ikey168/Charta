@@ -32,18 +32,22 @@ version=$($sdk/build-tools/35.0.0/aapt dump badging "$apk" | sed -n "s/^package:
 if [ -z "$version" ]; then echo "Could not read APK version code" >&2; exit 1; fi
 output="$repo/android/build/demo-artifacts/v${version}-${commit:0:12}"
 if [ -e "$output" ]; then echo "Artifact directory already exists: $output" >&2; exit 2; fi
+declare -A native_paths
+for abi in arm64-v8a x86_64; do
+    native=$(find "$repo/android/app/build/intermediates/cxx/RelWithDebInfo" -type f -path "*/obj/$abi/libdoodlebound.so" -print -quit)
+    if [ -z "$native" ]; then echo "Missing unstripped $abi native library" >&2; exit 1; fi
+    if ! "$sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -S "$native" | grep -F '.debug_info' >/dev/null; then
+        echo "$abi native library lacks debug symbols; check Release CMake flags" >&2
+        exit 1
+    fi
+    native_paths[$abi]=$native
+done
 mkdir -p "$output/symbols"
 cp "$apk" "$output/doodlebound-demo.apk"
 "$repo/scripts/android-demo-verify-apk.sh" "$output/doodlebound-demo.apk" > "$output/apk-verification.txt"
 for abi in arm64-v8a x86_64; do
-    native=$(find "$repo/android/app/.cxx/Release" -type f -path "*/$abi/libdoodlebound.so" -print -quit)
-    if [ -z "$native" ]; then echo "Missing unstripped $abi native library" >&2; exit 1; fi
     mkdir -p "$output/symbols/$abi"
-    cp "$native" "$output/symbols/$abi/libdoodlebound.so"
-    if ! "$sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -S "$native" | rg -q '\.debug_info'; then
-        echo "$abi native library lacks debug symbols; check Release CMake flags" >&2
-        exit 1
-    fi
+    cp "${native_paths[$abi]}" "$output/symbols/$abi/libdoodlebound.so"
 done
 (
     cd "$output"
