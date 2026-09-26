@@ -26,7 +26,14 @@ run_filtered_test() {
             com.ikore.doodlebound.test/androidx.test.runner.AndroidJUnitRunner \
             > "$recovery_result_dir/direct-runner.txt" 2>&1
     fi
-    grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"
+    if ! grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"; then
+        # Surface the failure in the job log; the result file only reaches the artifact.
+        echo "::group::$recovery_test_filter failed" >&2
+        cat "$recovery_result_dir/direct-runner.txt" >&2
+        adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' >&2 || true
+        echo "::endgroup::" >&2
+        return 1
+    fi
 }
 
 # sys.boot_completed can flip before the package manager accepts installs; wait for it.
