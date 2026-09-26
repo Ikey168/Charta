@@ -26,11 +26,46 @@ run_filtered_test() {
             com.ikore.doodlebound.test/androidx.test.runner.AndroidJUnitRunner \
             > "$recovery_result_dir/direct-runner.txt" 2>&1
     fi
-    grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"
+    if ! grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"; then
+        # Surface the failure in the job log; the result file only reaches the artifact.
+        echo "::group::$recovery_test_filter failed" >&2
+        cat "$recovery_result_dir/direct-runner.txt" >&2
+        adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' >&2 || true
+        echo "::endgroup::" >&2
+        return 1
+    fi
 }
 
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# sys.boot_completed can flip before the package manager accepts installs; wait for it.
+wait_for_package_service() {
+    attempts=0
+    until adb shell cmd package list packages android > /dev/null 2>&1; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge 60 ]; then
+            echo 'Package service did not become ready within 120 s' >&2
+            return 1
+        fi
+        sleep 2
+    done
+}
+
+install_apk() {
+    for attempt in 1 2 3; do
+        wait_for_package_service
+        if adb install "$@"; then
+            return 0
+        fi
+        echo "adb install $* failed (attempt $attempt); waiting for the device" >&2
+        adb wait-for-device
+        sleep 10
+    done
+    return 1
+}
+
+adb wait-for-device
+wait_for_package_service
+install_apk -r android/app/build/outputs/apk/debug/app-debug.apk
+install_apk -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c -b main -b crash
 adb shell am start -W -n com.ikore.doodlebound/.MainActivity
 sleep 8
@@ -42,7 +77,11 @@ run_filtered_test \
     android/app/build/outputs/androidTest-results/process-death-seed \
     seed
 
-adb shell am start -W -n com.ikore.doodlebound/.MainActivity
+# The seed run leaves the instrumentation's empty activity on top of the app's task; a plain
+# start would resurface that task instead of MainActivity, and on API 29 the app process never
+# starts. FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK (0x10008000) launches MainActivity
+# in a fresh task. The checkpoint under test lives in SharedPreferences, so this keeps it.
+adb shell am start -W -f 0x10008000 -n com.ikore.doodlebound/.MainActivity
 restore_result_dir="$repo_root/android/app/build/outputs/androidTest-results/process-death-restore"
 mkdir -p "$restore_result_dir"
 adb shell pidof com.ikore.doodlebound > "$restore_result_dir/pid-before-force-stop.txt"

@@ -43,7 +43,9 @@ After committing source, [the packaging script](../scripts/android-demo-package.
 build the release APK, verify it, archive unstripped native symbols and write SHA-256
 checksums under `android/build/demo-artifacts/`. It refuses to overwrite an existing
 artifact directory. Archive the keystore separately under an accountable owner; the
-artifact package intentionally excludes it.
+artifact package intentionally excludes it. The Android demo workflow's `signed-demo` job
+runs the same script in CI from repository secrets; the
+[handoff guide](ANDROID_DEMO_HANDOFF.md) describes how to trigger it and what it archives.
 
 To update an installed demo, keep the same signing certificate, increment
 `DOODLEBOUND_VERSION_CODE`, and run `adb install -r` with the new signed APK.
@@ -100,7 +102,9 @@ Store logs outside the repository if they include personal file paths or photos.
 sanitized logs and steps to the relevant GitHub issue. Record whether testing used an
 emulator or physical hardware; they prove different parts of the acceptance matrix.
 The [device report script](../scripts/android-demo-device-report.sh) prints a Markdown
-identity block for one authorized connected device and an optional APK.
+identity block for one authorized connected device and an optional APK. The
+[profile script](../scripts/android-demo-profile.sh) measures cold launch, play frame times,
+PSS and APK size against the acceptance budgets on the same device.
 
 ## Boundaries
 

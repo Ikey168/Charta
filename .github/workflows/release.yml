@@ -8,7 +8,7 @@ name: Release
 #                     and Windows without publishing, so a packaging change is validated in CI.
 # - workflow_dispatch -> manual build+package (optionally publishing to a named tag).
 #
-# Signing is driven by CI secrets and degrades cleanly to an unsigned build when they are
+# Signing (cmake/SignPackage.cmake, run inside cpack) is driven by CI secrets and degrades cleanly to an unsigned build when they are
 # absent (forks, dry runs). macOS packages as a required step since the #338/#366 toolchain
 # restore; the pre-1.0 dry-run evidence is recorded in docs/RELEASE_SIGNOFF_1.0.md (#378).
 
@@ -125,6 +125,60 @@ jobs:
       if: matrix.os == 'windows-2022'
       run: cmake --build build --config Release --target IKore --parallel
 
+    # Signing credentials (#419). Each step is a no-op without its secrets, so forks and PR
+    # dry-runs still package unsigned. With them, cmake/SignPackage.cmake signs the staged
+    # executable inside cpack (after CPACK_STRIP_FILES), and the verify steps below fail the
+    # job if the shipped binary is not actually signed.
+    #   macOS:   MACOS_CERTIFICATE_P12 (base64 .p12), MACOS_CERTIFICATE_PASSWORD,
+    #            MACOS_SIGNING_IDENTITY, and for notarization APPLE_ID, APPLE_TEAM_ID,
+    #            APPLE_APP_PASSWORD (app-specific password).
+    #   Windows: WINDOWS_CERTIFICATE_PFX (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD.
+    - name: Import macOS signing certificate
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      env:
+        MACOS_CERT: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+        MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        MACOS_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      run: |
+        if [ -z "$MACOS_CERT" ] || [ -z "$MACOS_IDENTITY" ]; then
+          echo "No macOS signing secrets; packaging unsigned (fork/dry-run fallback)."
+          exit 0
+        fi
+        KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+        KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+        echo "$MACOS_CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+        security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+        security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+        security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+        rm -f "$RUNNER_TEMP/cert.p12"
+        echo "IKORE_CODESIGN_IDENTITY=$MACOS_IDENTITY" >> "$GITHUB_ENV"
+        echo "IKORE_EXPECT_SIGNED=1" >> "$GITHUB_ENV"
+
+    - name: Prepare Windows signing certificate
+      if: matrix.os == 'windows-2022'
+      shell: pwsh
+      env:
+        WINDOWS_CERT: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+        WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      run: |
+        if (-not $env:WINDOWS_CERT) {
+          Write-Host "No Windows signing secret; packaging unsigned (fork/dry-run fallback)."
+          exit 0
+        }
+        $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+        [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT))
+        $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+          Sort-Object FullName -Descending | Select-Object -First 1
+        if (-not $signtool) { throw "signtool.exe not found in the Windows SDK" }
+        "IKORE_SIGNTOOL=$($signtool.FullName)" >> $env:GITHUB_ENV
+        "IKORE_SIGN_PFX=$pfx" >> $env:GITHUB_ENV
+        "IKORE_SIGN_PFX_PASSWORD=$env:WINDOWS_CERT_PASSWORD" >> $env:GITHUB_ENV
+        "IKORE_EXPECT_SIGNED=1" >> $env:GITHUB_ENV
+
     - name: Package (CPack)
       shell: bash
       working-directory: build
@@ -136,32 +190,43 @@ jobs:
         fi
         ls -la IKoreEngine-* || true
 
-    - name: Sign macOS package
-      if: matrix.os == 'macos-latest'
+    - name: Verify and notarize macOS package
+      if: matrix.os == 'macos-latest' && env.IKORE_EXPECT_SIGNED == '1'
       shell: bash
       env:
-        MACOS_CERT: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       run: |
-        if [ -n "$MACOS_CERT" ]; then
-          echo "macOS signing secret present: signing + notarizing the package."
-          # codesign --deep --force --sign "$MACOS_IDENTITY" build/IKoreEngine-*.tar.gz
-          # xcrun notarytool submit ... (wired via secrets in the real pipeline)
-        else
-          echo "No macOS signing secret; shipping an unsigned package (fork/dry-run fallback)."
+        set -euo pipefail
+        CHECK="$RUNNER_TEMP/pkgcheck"
+        mkdir -p "$CHECK"
+        tar -xzf build/IKoreEngine-*.tar.gz -C "$CHECK"
+        BIN="$(find "$CHECK" -type f -name IKore | head -1)"
+        codesign --verify --strict --verbose=2 "$BIN"
+        codesign -dv "$BIN" 2>&1 | grep -E 'Authority|TeamIdentifier|flags'
+        if [ -z "$APPLE_ID" ] || [ -z "$APPLE_TEAM_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
+          echo "::warning::Signed but not notarized: APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD not set."
+          exit 0
         fi
+        # notarytool does not accept .tar.gz; submit a zip of the same signed binary. A bare
+        # executable cannot be stapled, so Gatekeeper checks the ticket online on first run.
+        ditto -c -k --keepParent "$BIN" "$RUNNER_TEMP/IKore-notarize.zip"
+        xcrun notarytool submit "$RUNNER_TEMP/IKore-notarize.zip" \
+          --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" \
+          --wait --timeout 30m
 
-    - name: Sign Windows package
-      if: matrix.os == 'windows-2022'
-      shell: bash
-      env:
-        WINDOWS_CERT: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+    - name: Verify Windows package signature
+      if: matrix.os == 'windows-2022' && env.IKORE_EXPECT_SIGNED == '1'
+      shell: pwsh
       run: |
-        if [ -n "$WINDOWS_CERT" ]; then
-          echo "Windows signing secret present: signing the package."
-          # signtool sign /f cert.pfx /p "$WINDOWS_CERT_PASSWORD" build/IKoreEngine-*.zip
-        else
-          echo "No Windows signing secret; shipping an unsigned package (fork/dry-run fallback)."
-        fi
+        $check = Join-Path $env:RUNNER_TEMP "pkgcheck"
+        $zip = Get-ChildItem build\IKoreEngine-*.zip | Select-Object -First 1
+        Expand-Archive $zip.FullName -DestinationPath $check -Force
+        $exe = Get-ChildItem $check -Recurse -Filter IKore.exe | Select-Object -First 1
+        & $env:IKORE_SIGNTOOL verify /pa /v $exe.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Packaged IKore.exe is not validly signed" }
+        Remove-Item $env:IKORE_SIGN_PFX -Force
 
     - name: Upload package artifact
       uses: actions/upload-artifact@v4
@@ -224,5 +289,5 @@ jobs:
         gh release create "${TAG}" "${files[@]}" \
           --repo "${GITHUB_REPOSITORY}" \
           --target "${GITHUB_SHA}" \
-          --title "IKore Engine ${TAG}" \
+          --title "Charta ${TAG} (Doodlebound)" \
           --generate-notes
