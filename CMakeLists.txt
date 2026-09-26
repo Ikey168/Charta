@@ -1531,6 +1531,8 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Doodlebound - draw a level, then play it"
 set(CPACK_PACKAGE_FILE_NAME "IKoreEngine-${IKORE_RELEASE_VERSION}-${CMAKE_SYSTEM_NAME}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "IKoreEngine")
 set(CPACK_STRIP_FILES ON)
+# Sign the staged (post-strip) executable when release.yml provides credentials (CPack 3.19+).
+set(CPACK_PRE_BUILD_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SignPackage.cmake")
 if(WIN32)
     set(CPACK_GENERATOR "ZIP")
 else()

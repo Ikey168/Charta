@@ -2,7 +2,9 @@
 
 #include "core/Settings.h" // Settings (locale persistence, #61)
 
+#include <initializer_list>
 #include <map>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -139,6 +141,67 @@ inline StringTable defaultUiStrings() {
     t.set("prompt.lose", "You lose");
     t.set("prompt.pause", "Paused");
     return t;
+}
+
+/// A locale table built from (key, value) pairs.
+inline StringTable makeStringTable(const std::string& locale,
+                                   std::initializer_list<std::pair<const char*, const char*>> kv) {
+    StringTable t;
+    t.locale = locale;
+    for (const auto& e : kv) t.set(e.first, e.second);
+    return t;
+}
+
+/// Shipped translations of defaultUiStrings() (#419). Each must stay complete (same keys, same
+/// {placeholders}); test_localization enforces that. These are first-pass translations and
+/// should be reviewed by native speakers before a localized release.
+inline std::vector<StringTable> shippedUiTranslations() {
+    return {
+        makeStringTable("es", {{"hud.coins", "Monedas: {count}"},
+                               {"hud.score", "Puntos: {score}"},
+                               {"hud.keys", "Llaves: {count}"},
+                               {"menu.play", "Jugar"},
+                               {"menu.settings", "Ajustes"},
+                               {"menu.quit", "Salir"},
+                               {"prompt.win", "¡Has ganado!"},
+                               {"prompt.lose", "Has perdido"},
+                               {"prompt.pause", "En pausa"}}),
+        makeStringTable("fr", {{"hud.coins", "Pièces : {count}"},
+                               {"hud.score", "Score : {score}"},
+                               {"hud.keys", "Clés : {count}"},
+                               {"menu.play", "Jouer"},
+                               {"menu.settings", "Paramètres"},
+                               {"menu.quit", "Quitter"},
+                               {"prompt.win", "Vous avez gagné !"},
+                               {"prompt.lose", "Vous avez perdu"},
+                               {"prompt.pause", "En pause"}}),
+        makeStringTable("de", {{"hud.coins", "Münzen: {count}"},
+                               {"hud.score", "Punkte: {score}"},
+                               {"hud.keys", "Schlüssel: {count}"},
+                               {"menu.play", "Spielen"},
+                               {"menu.settings", "Einstellungen"},
+                               {"menu.quit", "Beenden"},
+                               {"prompt.win", "Gewonnen!"},
+                               {"prompt.lose", "Verloren"},
+                               {"prompt.pause", "Pausiert"}}),
+        makeStringTable("pt-BR", {{"hud.coins", "Moedas: {count}"},
+                                  {"hud.score", "Pontos: {score}"},
+                                  {"hud.keys", "Chaves: {count}"},
+                                  {"menu.play", "Jogar"},
+                                  {"menu.settings", "Configurações"},
+                                  {"menu.quit", "Sair"},
+                                  {"prompt.win", "Você venceu!"},
+                                  {"prompt.lose", "Você perdeu"},
+                                  {"prompt.pause", "Pausado"}}),
+    };
+}
+
+/// A Localizer with English as the default and every shipped translation registered.
+inline Localizer makeShippedLocalizer() {
+    Localizer loc;
+    loc.setDefault(defaultUiStrings());
+    for (const StringTable& t : shippedUiTranslations()) loc.addLocale(t);
+    return loc;
 }
 
 } // namespace game

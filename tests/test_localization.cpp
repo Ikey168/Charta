@@ -95,6 +95,37 @@ int main() {
     CHECK(loc2.currentLocale() == "es");
     CHECK(loc2.get("menu.play") == "Jugar");
 
+    // 7. Every shipped translation is complete and preserves each {placeholder} (#419).
+    {
+        Localizer shipped = makeShippedLocalizer();
+        const StringTable en = defaultUiStrings();
+        const std::vector<StringTable> tables = shippedUiTranslations();
+        CHECK(tables.size() >= 4);
+        for (const StringTable& tr : tables) {
+            CHECK(shipped.hasLocale(tr.locale));
+            if (!shipped.isComplete(tr.locale))
+                std::printf("incomplete locale: %s\n", tr.locale.c_str());
+            CHECK(shipped.isComplete(tr.locale));
+            for (const auto& kv : en.entries) {
+                const std::string value = tr.get(kv.first);
+                CHECK(!value.empty());
+                for (std::size_t open = kv.second.find('{'); open != std::string::npos;
+                     open = kv.second.find('{', open + 1)) {
+                    const std::string token =
+                        kv.second.substr(open, kv.second.find('}', open) - open + 1);
+                    if (value.find(token) == std::string::npos)
+                        std::printf("%s:%s lost %s\n", tr.locale.c_str(), kv.first.c_str(),
+                                    token.c_str());
+                    CHECK(value.find(token) != std::string::npos);
+                }
+            }
+        }
+        CHECK(shipped.setLocale("de"));
+        CHECK(shipped.format("hud.coins", {{"count", "3"}}) == "Münzen: 3");
+        CHECK(shipped.setLocale("pt-BR"));
+        CHECK(shipped.get("menu.quit") == "Sair");
+    }
+
     if (g_failures == 0) {
         std::printf("test_localization: all checks passed\n");
         return 0;

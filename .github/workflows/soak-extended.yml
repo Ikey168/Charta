@@ -1,0 +1,92 @@
+name: Extended soak
+
+# Scheduled long-session soak (#419). The bounded soak (#375) runs on every sanitizer job;
+# this runs the same harness for far longer across several seeds under ASan/UBSan/LSan.
+# Findings are recorded in the job summary and an uploaded report. A failing scheduled run
+# opens (or comments on) a tracking issue labeled "soak-finding".
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'   # weekly, Monday 04:17 UTC
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Iterations per seed'
+        default: '200000'
+      steps:
+        description: 'Simulation steps per session'
+        default: '600'
+      seeds:
+        description: 'Number of seeds'
+        default: '4'
+  pull_request:
+    paths:
+      - 'tools/soak_extended.cpp'
+      - 'src/game/Soak.h'
+      - '.github/workflows/soak-extended.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build soak driver with sanitizers
+        run: >
+          g++ -std=c++17 -O1 -g -fno-omit-frame-pointer
+          -fsanitize=address,undefined -fno-sanitize-recover=undefined
+          -I src tools/soak_extended.cpp -o soak_extended
+
+      - name: Run extended soak
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1
+          # A PR touching the soak only needs a short smoke; schedule/dispatch run long.
+          ITERATIONS: ${{ github.event_name == 'pull_request' && '2000' || github.event.inputs.iterations || '200000' }}
+          STEPS: ${{ github.event_name == 'pull_request' && '240' || github.event.inputs.steps || '600' }}
+          SEEDS: ${{ github.event_name == 'pull_request' && '2' || github.event.inputs.seeds || '4' }}
+        run: |
+          set -o pipefail
+          ./soak_extended --iterations "$ITERATIONS" --steps "$STEPS" --seeds "$SEEDS" \
+            --report soak-report.md 2>&1 | tee soak-log.txt
+
+      - name: Record findings
+        if: always()
+        run: |
+          if [ -f soak-report.md ]; then
+            cat soak-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '## Extended soak report\n\nThe driver crashed before writing a report; see the sanitizer output in the log.\n' | tee soak-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-report-${{ github.run_id }}
+          path: |
+            soak-report.md
+            soak-log.txt
+          retention-days: 90
+
+      - name: File a finding
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create soak-finding --color B60205 --description 'Extended soak failure' 2>/dev/null || true
+          body="$(printf 'Scheduled extended soak failed: %s\n\n' "$RUN_URL"; cat soak-report.md; printf '\n\nThe sanitizer trace is in the uploaded soak-log.txt.\n')"
+          existing="$(gh issue list --label soak-finding --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Extended soak failure" --label soak-finding --body "$body"
+          fi
