@@ -8,7 +8,29 @@ surfaced to code through the generated `ikore/Version.h`.
 
 ## [Unreleased]
 
-Development on the 1.0.x line (`1.0.1-dev`). Nothing user-facing yet.
+Development on the 1.0.x line (`1.0.1-dev`).
+
+### Added
+
+- **Localization**: first-pass Spanish, French, German and Brazilian Portuguese UI tables,
+  checked for completeness and placeholder integrity by `test_localization` (#419).
+- **Extended soak**: `tools/soak_extended.cpp` and a weekly `soak-extended.yml` sanitizer run
+  that records a findings report and files a `soak-finding` issue on failure (#419).
+- **Android demo handoff**: a CI `signed-demo` job that builds, signs and archives the demo APK
+  with symbols, checksums, the handoff guide, notices and the printable sheet (#446, #447); a
+  device profiling script for the acceptance budgets (#444); and an evidence index with the
+  sign-off record (#448, #449).
+
+### Changed
+
+- **Release signing** is wired end to end (#419): a CPack pre-build hook signs the staged
+  executable with codesign or signtool when secrets are configured, the workflow verifies the
+  signature inside the package and notarizes on macOS. Releases are titled "Charta vX.Y.Z".
+
+### Fixed
+
+- The hosted Android emulator matrix ran without KVM acceleration, causing slow boots, package
+  service loss and ANRs; the workflow now enables KVM and waits for the package service (#425).
 
 ## [1.0.0] - 2026-07-21
 

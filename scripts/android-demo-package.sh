@@ -49,15 +49,22 @@ for abi in arm64-v8a x86_64; do
     mkdir -p "$output/symbols/$abi"
     cp "${native_paths[$abi]}" "$output/symbols/$abi/libdoodlebound.so"
 done
+# Handoff bundle (A26): guide, license notices and the printable drawing sheet.
+mkdir -p "$output/docs" "$output/printables"
+cp "$repo/docs/ANDROID_DEMO_HANDOFF.md" "$output/docs/"
+cp "$repo/android/app/src/main/assets/NOTICE.txt" "$output/docs/"
+cp "$repo/assets/printables/doodlebound-three-room.svg" \
+   "$repo/assets/printables/doodlebound-three-room.png" "$output/printables/"
 (
     cd "$output"
-    sha256sum doodlebound-demo.apk symbols/*/libdoodlebound.so > SHA256SUMS
+    sha256sum doodlebound-demo.apk symbols/*/libdoodlebound.so docs/* printables/* > SHA256SUMS
 )
 {
     echo "Commit: $commit"
     echo "Version code: $version"
     echo "Built (UTC): $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-    echo "APK and native symbols: see SHA256SUMS"
+    echo "Version name: ${DOODLEBOUND_VERSION_NAME:-0.1.0-demo}"
+    echo "APK, native symbols, guide and printables: see SHA256SUMS"
     echo "Device acceptance: pending until the exact APK hash passes the matrix"
 } > "$output/BUILD.txt"
 echo "$output"

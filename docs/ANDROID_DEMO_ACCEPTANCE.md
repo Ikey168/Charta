@@ -77,5 +77,6 @@ and worst-supported scenes; avoid reporting average fps as proof of frame pacing
 
 For each run record: issue/scenario, operator/date, device details, commit and artifact hash,
 steps, expected/actual result, screenshot/video/log/profile links, pass/fail and defect links.
-Attach an evidence index to the release issue. Blank entries are pending, never passes.
+Attach an evidence index to the release issue; the working index is
+[Android evidence index](evidence/ANDROID_EVIDENCE_INDEX.md). Blank entries are pending, never passes.
 The release artifact must match the tested hash; any binary change requires relevant retesting.

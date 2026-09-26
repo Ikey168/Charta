@@ -4,7 +4,8 @@ Charta / Doodlebound engine, Android app code, and the three-room sample drawing
 Copyright (c) 2025 Ikey168 and contributors. Licensed under the MIT License.
 The complete MIT License is reproduced below.
 
-AndroidX GameActivity 4.4.2 and AndroidX transitive libraries
+AndroidX GameActivity 4.4.2, AndroidX AppCompat 1.7.1, AndroidX Core 1.17.0 and
+their AndroidX transitive libraries
 Copyright The Android Open Source Project. Licensed under the Apache License,
 Version 2.0. Source: https://developer.android.com/games/agdk/game-activity
 
@@ -13,7 +14,8 @@ Copyright JetBrains s.r.o. and contributors. Licensed under the Apache License,
 Version 2.0. Source: https://github.com/JetBrains/kotlin
 
 The complete Apache License, Version 2.0, is reproduced below. The printable
-three-room SVG and PNG are original project assets; no external artwork, audio,
+three-room SVG and PNG are original project assets, and the ambient music and sound
+cues are synthesized at runtime by the app; no external artwork, recorded audio,
 fonts or texture files are bundled for the demo.
 
 --- MIT License ---
