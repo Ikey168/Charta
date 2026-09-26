@@ -9,6 +9,7 @@ on:
       - 'src/doodle/**'
       - 'src/cv/**'
       - 'src/game/**'
+      - 'scripts/android-demo-*.sh'
       - '.github/workflows/android-demo.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'src/doodle/**'
       - 'src/cv/**'
       - 'src/game/**'
+      - 'scripts/android-demo-*.sh'
       - '.github/workflows/android-demo.yml'
   workflow_dispatch:
 
@@ -48,6 +50,15 @@ jobs:
           unzip -l android/app/build/outputs/apk/debug/app-debug.apk | tee android-apk-inventory.txt
           grep -F 'lib/arm64-v8a/libdoodlebound.so' android-apk-inventory.txt
           grep -F 'lib/x86_64/libdoodlebound.so' android-apk-inventory.txt
+      # Hosted runners expose /dev/kvm, but only root can open it until this rule is
+      # installed. Without it the emulator falls back to software emulation: boot takes
+      # 10+ minutes and the package/activity services die mid-install.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
       - name: Emulator launch smoke
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -55,6 +66,10 @@ jobs:
           arch: x86_64
           target: default
           profile: pixel_5
+          cores: 4
+          ram-size: 4096M
+          disk-size: 6000M
+          emulator-boot-timeout: 900
           disable-animations: true
           script: sh scripts/android-demo-emulator-smoke.sh
       - name: Upload APK and smoke evidence

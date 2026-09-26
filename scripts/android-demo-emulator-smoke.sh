@@ -29,8 +29,36 @@ run_filtered_test() {
     grep -F 'OK (1 test)' "$recovery_result_dir/direct-runner.txt"
 }
 
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# sys.boot_completed can flip before the package manager accepts installs; wait for it.
+wait_for_package_service() {
+    attempts=0
+    until adb shell cmd package list packages android > /dev/null 2>&1; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge 60 ]; then
+            echo 'Package service did not become ready within 120 s' >&2
+            return 1
+        fi
+        sleep 2
+    done
+}
+
+install_apk() {
+    for attempt in 1 2 3; do
+        wait_for_package_service
+        if adb install "$@"; then
+            return 0
+        fi
+        echo "adb install $* failed (attempt $attempt); waiting for the device" >&2
+        adb wait-for-device
+        sleep 10
+    done
+    return 1
+}
+
+adb wait-for-device
+wait_for_package_service
+install_apk -r android/app/build/outputs/apk/debug/app-debug.apk
+install_apk -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c -b main -b crash
 adb shell am start -W -n com.ikore.doodlebound/.MainActivity
 sleep 8
