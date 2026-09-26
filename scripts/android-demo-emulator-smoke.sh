@@ -70,7 +70,11 @@ run_filtered_test \
     android/app/build/outputs/androidTest-results/process-death-seed \
     seed
 
-adb shell am start -W -n com.ikore.doodlebound/.MainActivity
+# The seed run leaves the instrumentation's empty activity on top of the app's task; a plain
+# start would resurface that task instead of MainActivity, and on API 29 the app process never
+# starts. FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK (0x10008000) launches MainActivity
+# in a fresh task. The checkpoint under test lives in SharedPreferences, so this keeps it.
+adb shell am start -W -f 0x10008000 -n com.ikore.doodlebound/.MainActivity
 restore_result_dir="$repo_root/android/app/build/outputs/androidTest-results/process-death-restore"
 mkdir -p "$restore_result_dir"
 adb shell pidof com.ikore.doodlebound > "$restore_result_dir/pid-before-force-stop.txt"
